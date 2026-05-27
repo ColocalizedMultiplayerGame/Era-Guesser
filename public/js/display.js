@@ -94,7 +94,14 @@ socket.on('updateState', (state) => {
     }
 });
 
+// TEST VISUEL : Réception de l'accusé de réception du serveur
+socket.on('gameStartedAck', (data) => {
+    alert("🟢 TEST SUCCÈS : Le serveur Render a BIEN reçu l'ordre de démarrage ! Nombre de questions : " + data.totalQuestions);
+});
+
 socket.on('roundStart', (data) => {
+    alert("🟢 TEST SUCCÈS : L'événement 'roundStart' a été reçu par le navigateur ! Passage à la manche : " + data.round);
+    
     if (!gameBGMStarted) {
         gameBGMStarted = true;
         playNextGameTrack();
@@ -261,9 +268,11 @@ socket.on('playerLeft', (playerId) => {
 
 let showingRules = false;
 
+// TEST VISUEL SUR LA TOUCHE ENTRÉE
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault(); 
+        alert("⌨️ [DEBUG CLAVIER] Touche Entrée détectée !");
         
         const loadingMessage = document.getElementById('loading-message');
         const isActive = loadingMessage && loadingMessage.style.display !== 'none';
@@ -276,14 +285,19 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// TEST VISUEL SUR LE CLIC SOURIS
 const startBtn = document.getElementById('start-btn');
 if (startBtn) {
     startBtn.addEventListener('click', () => {
+        alert("🖱️ [DEBUG SOURIS] Clic sur le bouton de démarrage détecté !");
         const loadingMessage = document.getElementById('loading-message');
         const isActive = loadingMessage && loadingMessage.style.display !== 'none';
         
         if (isActive && !showingRules) {
             showRulesScreen();
+        } else {
+            // Sécurité : si l'écran des règles plante, on force le lancement direct au clic
+            hideRulesAndStart();
         }
     });
 }
@@ -300,16 +314,19 @@ function showRulesScreen() {
         if (document.activeElement && document.activeElement.blur) {
             document.activeElement.blur();
         }
+    } else {
+        // Si l'écran des règles est absent ou buggé, on démarre direct
+        hideRulesAndStart();
     }
 }
 
 function hideRulesAndStart() {
+    alert("🚀 [DEBUG DISPATCH] Tentative d'envoi de 'startGame' via Socket.io...");
     const rulesScreen = document.getElementById('rules-screen');
     if (rulesScreen) {
         rulesScreen.classList.add('hidden');
     }
     showingRules = false;
-    console.log("Envoi du signal startGame au serveur...");
     socket.emit('startGame');
 }
 
