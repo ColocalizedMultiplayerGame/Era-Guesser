@@ -289,26 +289,37 @@ let showingRules = false;
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault(); 
-        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
-        if (isActive && !showingRules) {
-            showRulesScreen();
-        } else if (showingRules) {
-            hideRulesAndStart();
-        }
+        console.log("Touche Entrée : Démarrage immédiat !");
+        
+        const rulesScreen = document.getElementById('rules-screen');
+        if (rulesScreen) rulesScreen.classList.add('hidden');
+        showingRules = false;
+        
+        if (loadingMessage) loadingMessage.style.display = 'none';
+        
+        socket.emit('startGame');
     }
 });
 
 const startBtn = document.getElementById('start-btn');
 if (startBtn) {
     startBtn.addEventListener('click', () => {
-        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
-        if (isActive && !showingRules) {
-            console.log("active");
-            showRulesScreen();
-        } else {
-            console.log("none active");
-            hideRulesAndStart();
+        console.log("Démarrage immédiat demandé !");
+        
+        // 1. On cache l'écran des règles / tuto s'il est là
+        const rulesScreen = document.getElementById('rules-screen');
+        if (rulesScreen) {
+            rulesScreen.classList.add('hidden');
         }
+        showingRules = false;
+
+        // 2. On cache le message de chargement
+        if (loadingMessage) {
+            loadingMessage.style.display = 'none';
+        }
+
+        // 3. On balance direct l'ordre au serveur Render !
+        socket.emit('startGame');
     });
 }
 
