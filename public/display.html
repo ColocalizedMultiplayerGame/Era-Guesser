@@ -7,7 +7,7 @@
     <title>EraGuesser - Écran Principal</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -15,7 +15,7 @@
 
 <body class="display-mode">
     <div id="server-offline-screen" class="hidden"
-        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('images/grey-mystery-wall-background.jpg') center/cover no-repeat; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('/images/grey-mystery-wall-background.jpg') center/cover no-repeat; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
         <div
             style="background: rgba(0, 0, 0, 0.7); padding: 50px; border-radius: 15px; border: 2px dashed rgba(255,255,255,0.2); box-shadow: inset 0 0 20px rgba(0,0,0,1);">
             <h1
@@ -38,15 +38,13 @@
                 EraGuesser</h1>
             <h2>Classement (<span id="player-count">0</span>)</h2>
             <ul id="leaderboard-list">
-                <!-- Players will be listed here -->
-            </ul>
+                </ul>
             <div id="stats"
                 style="text-align: center; border-top: 2px dashed rgba(0,0,0,0.3); padding-top: 10px; margin-top: 20px; font-weight: bold; font-size: 1.2rem;">
                 Manche <span id="current-round">0</span> / <span id="total-rounds">3</span>
             </div>
             <div id="qr-code-placeholder" style="margin-top: 20px;">
                 <p style="margin: 0 0 10px 0;">Scannez pour rejoindre</p>
-                <!-- QR Code here -->
             </div>
         </div>
 
@@ -68,14 +66,13 @@
                         la partie</button>
                 </div>
             </div>
-            <!-- Defines where the result map will be shown (overlaid or replacing photo) -->
+            
             <div id="screen-result"
                 style="display:none; position: absolute; width:100%; height:100%; padding: 2rem; box-sizing: border-box; z-index: 100;">
                 <div id="result-map"
                     style="width:100%; height:100%; border: 15px solid white; box-shadow: 5px 5px 20px rgba(0,0,0,0.5); transform: rotate(-1deg);">
                 </div>
 
-                <!-- Educational Context Memo -->
                 <div id="context-card">
                     <h2 id="context-year"></h2>
                     <p id="context-desc"></p>
@@ -83,7 +80,6 @@
             </div>
         </div>
 
-        <!-- Endgame Screen: Open Folder -->
         <div id="endgame-screen" class="hidden">
             <div class="open-folder-container">
                 <div class="folder-page folder-left">
@@ -94,13 +90,11 @@
                         style="text-align:center; color: var(--color-blood-red); text-transform:uppercase; border-bottom: 2px dashed var(--color-ink); padding-bottom: 15px; font-size:2.5rem; margin-top:0;">
                         RAPPORT FINAL</h2>
                     <ul id="final-leaderboard">
-                        <!-- populated by JS -->
-                    </ul>
+                        </ul>
                 </div>
             </div>
         </div>
 
-        <!-- Rules Screen: Tuto Image -->
         <div id="rules-screen" class="hidden"
             style="position: absolute; top:0; left:0; width:100vw; height:100vh; z-index:2000; background: #000; overflow: hidden;">
             <style>
@@ -122,12 +116,12 @@
                     animation: slamTable 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
                 }
             </style>
-            <img src="images/tuto.jpg" alt="Règles du Jeu" class="slam-table-anim"
+            <img src="/images/tuto.jpg" alt="Règles du Jeu" class="slam-table-anim"
                 style="width: 100%; height: 100%; object-fit: cover;">
         </div>
 
     </div>
-    <script src="js/display.js"></script>
+    <script src="/js/display.js"></script>
 </body>
 
 </html>
