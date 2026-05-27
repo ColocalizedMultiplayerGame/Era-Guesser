@@ -3,34 +3,40 @@ const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
-const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Get Local IP
-function getLocalIp() {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
-            }
-        }
-    }
-    return 'localhost';
-}
-const localIp = getLocalIp();
-
-// Load Game Data
+// Chargement des données de jeu depuis la racine
 const gameData = JSON.parse(fs.readFileSync('data.json', 'utf8'));
 
+// Sert tous les fichiers du dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// QR Code route moved to bottom to use publicUrl
+// Redirection de la racine vers l'écran principal
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'display.html'));
+});
 
+// Importation dynamique de QRCode pour compatibilité ESM/CJS si besoin, ou standard
+const QRCode = require('qrcode');
+
+// Configuration de la route QR Code dynamique pour Render
+app.get('/qrcode', async (req, res) => {
+    try {
+        const host = req.get('host'); 
+        const protocol = req.protocol; // https sur Render, http en local
+        
+        const url = `${protocol}://${host}/controller.html`;
+        const qr = await QRCode.toDataURL(url);
+
+        res.json({ ready: true, qr, url });
+    } catch (err) {
+        console.error('Error generating QR code:', err);
+        res.status(500).send('Error generating QR code');
+    }
+});
 
 // Helpers
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -61,7 +67,6 @@ const ROUND_TIME = 45; // seconds
 io.on('connection', (socket) => {
     // Identify client type
     socket.on('identify', (data) => {
-        // Support both string 'display' and object {type, name}
         const type = typeof data === 'string' ? data : data.type;
         const name = (typeof data === 'object' && data.name) ? data.name : ('Joueur ' + socket.id.substr(0, 4));
 
@@ -80,7 +85,6 @@ io.on('connection', (socket) => {
             io.to('display').emit('playerJoined', gameState.players[socket.id]);
             socket.emit('joined', gameState.players[socket.id]);
 
-            // If game already running, inform player
             if (gameState.phase !== 'LOBBY') {
                 socket.emit('gameAlreadyStarted');
             } else {
@@ -127,10 +131,8 @@ function startGame() {
         Object.entries(gameState.players).map(([id, p]) => [id, { ...p, score: 0, lastGuess: null }])
     );
     
-    // Use a "Bag" randomizer (draw without replacement across games)
     if (globalDeck.length < gameState.totalRounds) {
         let pool = Array.from({length: gameData.length}, (_, i) => i);
-        // Fisher-Yates shuffle
         for (let i = pool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -138,9 +140,7 @@ function startGame() {
         globalDeck = globalDeck.concat(pool);
     }
     
-    // Draw the next rounds from the bag
     gameState.activeRoundIndices = globalDeck.splice(0, gameState.totalRounds);
-    
     startRound();
 }
 
@@ -152,12 +152,10 @@ function startRound() {
     }
 
     gameState.phase = 'ROUND';
-    // Pick from the randomized pool
     const dataIndex = gameState.activeRoundIndices[gameState.currentRound - 1];
     gameState.currentRoundData = gameData[dataIndex];
     gameState.timeLeft = ROUND_TIME;
 
-    // Reset guesses
     Object.keys(gameState.players).forEach(id => {
         gameState.players[id].lastGuess = null;
     });
@@ -192,27 +190,23 @@ function endRound() {
         let yearDiff = 0;
 
         if (p.lastGuess) {
-            // Distance Score
             dist = calculateDistance(
                 correct.location.lat, correct.location.lng,
                 p.lastGuess.lat, p.lastGuess.lng
             );
             const distScore = Math.max(0, 2500 - Math.floor(dist));
 
-            // Year Score
             yearDiff = Math.abs(correct.year - p.lastGuess.year);
             const yearScore = Math.max(0, 2500 - (yearDiff * 50));
 
             const rawAccuracyScore = distScore + yearScore;
             
-            // Speed Multiplier (Up to 2x bonus for instant answers)
-            const timeRatio = (p.guessTimeLeft || 0) / ROUND_TIME; // 1.0 (fast) down to 0.0 (slow)
-            const speedMultiplier = 1.0 + timeRatio; // 2.0x max, 1.0x min
+            const timeRatio = (p.guessTimeLeft || 0) / ROUND_TIME; 
+            const speedMultiplier = 1.0 + timeRatio; 
             
             roundScore = Math.floor(rawAccuracyScore * speedMultiplier);
             p.score += roundScore;
             
-            // Reset for next round
             p.guessTimeLeft = 0;
         }
 
@@ -249,29 +243,10 @@ function endGame() {
     setTimeout(() => {
         gameState.phase = 'LOBBY';
         io.emit('resetLobby');
-    }, 30000); // 30 seconds
+    }, 30000); 
 }
 
-/ Écoute sur le port fourni par Render (ou 3000 en local)
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-});
-
-// Route QR Code adaptée pour Render
-app.get('/qrcode', async (req, res) => {
-    try {
-        // Sur Render, on peut reconstruire l'URL publique dynamiquement à partir de la requête
-        const host = req.get('host'); 
-        const protocol = req.protocol; // https ou http
-        
-        const url = `${protocol}://${host}/controller.html`;
-        const qr = await QRCode.toDataURL(url);
-
-        res.json({ ready: true, qr, url });
-    } catch (err) {
-        console.error('Error generating QR code:', err);
-        res.status(500).send('Error generating QR code');
-    }
 });
