@@ -103,6 +103,9 @@ socket.on('updateState', (state) => {
 });
 
 socket.on('roundStart', (data) => {
+    // LOG DE DEBUG : Vérifie l'adresse de l'image reçue dans ta console F12 !
+    console.log("📸 [DEBUG IMAGE] URL reçue du serveur pour ce round :", data.imageUrl);
+
     if (!gameBGMStarted) {
         gameBGMStarted = true;
         playNextGameTrack();
@@ -120,19 +123,19 @@ socket.on('roundStart', (data) => {
     if (screenResult) screenResult.style.display = 'none';
     
     if (photoImg) {
+        // 1. On applique d'abord la nouvelle image pour la précharger
+        photoImg.src = data.imageUrl;
         photoImg.style.display = 'block';
-        const pin = document.querySelector('#photo-wrapper .pin');
         
+        // 2. On gère les animations ensuite
+        const pin = document.querySelector('#photo-wrapper .pin');
         photoImg.classList.remove('animate-drop', 'animate-flash');
         if(pin) pin.classList.remove('animate-stab');
         
-        void photoImg.offsetWidth; 
+        void photoImg.offsetWidth; // Force le rafraîchissement visuel du navigateur
         
         photoImg.classList.add('animate-drop', 'animate-flash');
         if(pin) pin.classList.add('animate-stab');
-        
-        // Attribution de l'image de l'événement
-        photoImg.src = data.imageUrl;
     }
 
     if (roundDisplay) roundDisplay.textContent = data.round;
@@ -290,7 +293,7 @@ socket.on('playerLeft', (playerId) => {
     }
 });
 
-// ÉCOUTEURS CLAVIER & SOURIS : ACTION DIRECTE EN 1 CLIC
+// ACTION DIRECTE EN 1 CLIC / 1 TOUCHE ENTRÉE
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault(); 
