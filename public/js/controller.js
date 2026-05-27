@@ -3,7 +3,7 @@ let myId = null;
 let currentGuess = { lat: 0, lng: 0, year: 1950 };
 let hasGuessed = false;
 
-// --- Web Audio API System ---
+// --- Web Audio API System mis à jour avec les dossiers audio ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const audioBuffers = {};
 
@@ -16,9 +16,9 @@ async function loadSfx(name, path) {
         console.error("Audio error:", e);
     }
 }
-loadSfx('agrafe', 'audio/agrafe.mp3');
-loadSfx('cliquetis', 'audio/cliquetis.mp3');
-loadSfx('ding', 'audio/ding.mp3');
+loadSfx('agrafe', '/audio/agrafe.mp3');
+loadSfx('cliquetis', '/audio/cliquetis.mp3');
+loadSfx('ding', '/audio/ding.mp3');
 
 function playSfx(name) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -29,7 +29,6 @@ function playSfx(name) {
         source.start(0);
     }
 }
-// ----------------------------
 
 // UI Elements
 const loginScreen = document.getElementById('login-screen');
@@ -83,7 +82,6 @@ joinBtn.addEventListener('click', () => {
         if (name.length > 20) name = name.substring(0, 20);
         socket.emit('identify', { type: 'controller', name: name });
         loginScreen.classList.add('hidden');
-        // Wait for server to say 'waitInLobby' or 'roundStart'
     }
 });
 
@@ -154,14 +152,13 @@ socket.on('roundStart', (data) => {
     if (mobileTimer && data && data.time) {
         mobileTimer.innerText = data.time;
     }
-    // Initialize map now that it's visible
     setTimeout(() => {
         initMap();
         map.invalidateSize();
-        if (map) map.setView([20, 0], 1); // Auto reset zoom out!
+        if (map) map.setView([20, 0], 1); 
     }, 100);
     unlockInterface();
-    closeMiniGame(); // Force close mini-game when round starts
+    closeMiniGame(); 
     const personalResults = document.getElementById('personal-results');
     if (personalResults) personalResults.classList.add('hidden');
 });
@@ -185,7 +182,7 @@ socket.on('timerUpdate', (timeLeft) => {
 });
 
 socket.on('roundResult', (data) => {
-    closeMiniGame(); // Ensure minigame is closed when results appear
+    closeMiniGame(); 
     const myResult = data.playerResults.find(p => p.id === myId);
     if (myResult && myResult.guess) {
         const personalResults = document.getElementById('personal-results');
@@ -211,7 +208,6 @@ socket.on('roundResult', (data) => {
         if (personalResults) personalResults.classList.remove('hidden');
         gameInterface.classList.add('hidden');
     } else if (myResult && !myResult.guess) {
-        // Player missed their guess
         const personalResults = document.getElementById('personal-results');
         const resPoints = document.getElementById('res-points');
         
@@ -280,12 +276,10 @@ function closeMiniGame() {
     if (mgAnimFrame) cancelAnimationFrame(mgAnimFrame);
 }
 
-// Event listeners for open/close
 document.getElementById('lobby-minigame-btn')?.addEventListener('click', openMiniGame);
 document.getElementById('post-guess-minigame-btn')?.addEventListener('click', openMiniGame);
 document.getElementById('close-minigame-btn')?.addEventListener('click', closeMiniGame);
 
-// Controls (Drag Mechanism)
 let isDragging = false;
 let offsetX = 0;
 
@@ -311,7 +305,6 @@ if (mgCanvas) {
 
     mgCanvas.addEventListener('touchend', () => isDragging = false);
 
-    // Mouse equivalents
     mgCanvas.addEventListener('mousedown', (e) => {
         const rect = mgCanvas.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
@@ -337,9 +330,7 @@ function mgLoop() {
 
     mgCtx.clearRect(0, 0, mgCanvas.width, mgCanvas.height);
 
-    // Spawn items
     if (mgFrames % 60 === 0) {
-        // Randomly pick a continent and then a country from it
         const cont = mgContinents[Math.floor(Math.random() * mgContinents.length)];
         const countryList = mgCountries[cont];
         const country = countryList[Math.floor(Math.random() * countryList.length)];
@@ -352,15 +343,12 @@ function mgLoop() {
         });
     }
 
-    // Change basket continent every a few catches/time
     if (mgFrames % 600 === 0) {
         mgBasketContinent = mgContinents[Math.floor(Math.random() * mgContinents.length)];
     }
 
-    // Draw basket (Wire Mesh Trash Can)
     mgCtx.save();
     mgCtx.translate(mgBasketX, mgCanvas.height - mgBasketHeight - 10);
-    // Base inner
     mgCtx.globalCompositeOperation = 'destination-over';
     mgCtx.fillStyle = '#111';
     mgCtx.beginPath();
@@ -368,19 +356,18 @@ function mgLoop() {
     mgCtx.fill();
     mgCtx.globalCompositeOperation = 'source-over';
 
-    // Body Mesh
     mgCtx.strokeStyle = '#444';
     mgCtx.lineWidth = 1.5;
     mgCtx.beginPath();
-    mgCtx.moveTo(0, 0); // left rim
-    mgCtx.lineTo(mgBasketWidth / 2 - 30, mgBasketHeight); // left base
-    mgCtx.lineTo(mgBasketWidth / 2 + 30, mgBasketHeight); // right base
-    mgCtx.lineTo(mgBasketWidth, 0); // right rim
+    mgCtx.moveTo(0, 0); 
+    mgCtx.lineTo(mgBasketWidth / 2 - 30, mgBasketHeight); 
+    mgCtx.lineTo(mgBasketWidth / 2 + 30, mgBasketHeight); 
+    mgCtx.lineTo(mgBasketWidth, 0); 
     mgCtx.fillStyle = 'rgba(0,0,0,0.5)';
-    mgCtx.fill(); // Dark semi-transparent background for bin
+    mgCtx.fill(); 
     mgCtx.save();
     mgCtx.clip();
-    // Grid
+    
     mgCtx.beginPath();
     for (let x = -50; x < mgBasketWidth + 50; x += 15) {
         mgCtx.moveTo(x, -10);
@@ -391,14 +378,13 @@ function mgLoop() {
     mgCtx.stroke();
     mgCtx.restore();
 
-    // Rims
     mgCtx.fillStyle = '#222';
     mgCtx.beginPath();
     mgCtx.ellipse(mgBasketWidth / 2, 0, mgBasketWidth / 2, 6, 0, 0, Math.PI * 2);
     mgCtx.fill();
     mgCtx.strokeStyle = '#888';
     mgCtx.lineWidth = 2;
-    mgCtx.stroke(); // Shiny top rim
+    mgCtx.stroke(); 
     mgCtx.fillStyle = '#222';
     mgCtx.beginPath();
     mgCtx.ellipse(mgBasketWidth / 2, mgBasketHeight, 30, 5, 0, 0, Math.PI * 2);
@@ -406,7 +392,6 @@ function mgLoop() {
 
     mgCtx.restore();
 
-    // Text on the bin (like a label sticked to it)
     mgCtx.fillStyle = '#fdf5e6';
     mgCtx.fillRect(mgBasketX + mgBasketWidth / 2 - 30, mgCanvas.height - mgBasketHeight / 2 - 15, 60, 20);
     mgCtx.fillStyle = '#111';
@@ -415,7 +400,6 @@ function mgLoop() {
     mgCtx.textBaseline = 'middle';
     mgCtx.fillText(mgBasketContinent, mgBasketX + mgBasketWidth / 2, mgCanvas.height - mgBasketHeight / 2 - 5);
 
-    // Draw items (Tags with Strings)
     for (let i = mgFallingItems.length - 1; i >= 0; i--) {
         let item = mgFallingItems[i];
         item.y += item.speed;
@@ -428,7 +412,6 @@ function mgLoop() {
         mgCtx.save();
         mgCtx.translate(item.x, item.y);
 
-        // Red string
         mgCtx.strokeStyle = '#ad1a1a';
         mgCtx.lineWidth = 1.5;
         mgCtx.beginPath();
@@ -436,7 +419,6 @@ function mgLoop() {
         mgCtx.quadraticCurveTo(tagWidth / 2 - 15, -15, tagWidth / 2 + 10, -25);
         mgCtx.stroke();
 
-        // Tag Body
         mgCtx.fillStyle = '#fdf5e6';
         mgCtx.shadowColor = 'rgba(0,0,0,0.3)';
         mgCtx.shadowOffsetY = 2;
@@ -446,7 +428,6 @@ function mgLoop() {
         mgCtx.fill();
         mgCtx.shadowColor = 'transparent';
 
-        // Hole
         mgCtx.fillStyle = '#fff';
         mgCtx.strokeStyle = '#ccc';
         mgCtx.lineWidth = 1;
@@ -455,7 +436,6 @@ function mgLoop() {
         mgCtx.fill();
         mgCtx.stroke();
 
-        // Text
         mgCtx.fillStyle = '#2b2b2b';
         mgCtx.textAlign = 'center';
         mgCtx.textBaseline = 'middle';
@@ -463,7 +443,6 @@ function mgLoop() {
 
         mgCtx.restore();
 
-        // Collision logic (approximate tag center)
         if (item.y + tagHeight > mgCanvas.height - mgBasketHeight - 10 && item.y < mgCanvas.height) {
             if (item.x + tagWidth / 2 > mgBasketX && item.x + tagWidth / 2 < mgBasketX + mgBasketWidth) {
                 if (item.continent === mgBasketContinent) {
@@ -477,7 +456,6 @@ function mgLoop() {
             }
         }
 
-        // Out of bounds
         if (item.y > mgCanvas.height + 20) {
             mgFallingItems.splice(i, 1);
         }
