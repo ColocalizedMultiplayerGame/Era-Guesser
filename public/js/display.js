@@ -10,15 +10,17 @@ const loadingMessage = document.getElementById('loading-message');
 
 const leaderboardList = document.getElementById('leaderboard-list');
 
-// Map Initialization
+// Map Initialization sécurisée
 let map = null;
 try {
-    map = L.map('result-map').setView([20, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap France contributors'
-    }).addTo(map);
+    if (typeof L !== 'undefined' && L.map) {
+        map = L.map('result-map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap France contributors'
+        }).addTo(map);
+    }
 } catch (e) {
-    console.error("Erreur lors de l'initialisation initiale de la carte Leaflet:", e);
+    console.error("Erreur lors de l'initialisation de la carte Leaflet:", e);
 }
 
 let markers = [];
@@ -106,8 +108,6 @@ socket.on('updateState', (state) => {
 });
 
 socket.on('roundStart', (data) => {
-    console.log("Signal 'roundStart' reçu du serveur", data);
-    
     if (!gameBGMStarted) {
         gameBGMStarted = true;
         playNextGameTrack();
@@ -120,7 +120,6 @@ socket.on('roundStart', (data) => {
     const qrPlaceholder = document.getElementById('qr-code-placeholder');
     if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
 
-    // Nettoyage sécurisé de la carte
     clearMap();
     if (screenResult) screenResult.style.display = 'none';
     
@@ -132,7 +131,6 @@ socket.on('roundStart', (data) => {
     const pin = document.querySelector('#photo-wrapper .pin');
     if (pin) pin.classList.remove('animate-stab');
     
-    // Forcer le reflow
     void document.body.offsetWidth; 
     
     if (photoImg) photoImg.classList.add('animate-drop', 'animate-flash');
@@ -185,7 +183,16 @@ socket.on('roundResult', (data) => {
     if (contextCard) contextCard.classList.add('animate-context');
 
     setTimeout(() => {
-        if (!map) return;
+        if (!map || typeof L === 'undefined') {
+            if (data.playerResults) {
+                data.playerResults.forEach(res => {
+                    updateLeaderboard({ id: res.id, name: res.name, score: res.totalScore, color: res.color });
+                });
+            }
+            sortLeaderboardByScore();
+            return;
+        }
+
         map.invalidateSize();
 
         const correctIcon = L.icon({
@@ -234,7 +241,7 @@ socket.on('roundResult', (data) => {
             const group = new L.featureGroup([correctMarker, ...markers]);
             map.fitBounds(group.getBounds().pad(0.1));
         } catch (err) {
-            console.log("Erreur ajustement zoom carte:", err);
+            console.log("Erreur zoom carte:", err);
         }
 
     }, 100);
@@ -255,144 +262,3 @@ socket.on('gameEnd', (playersObj) => {
             finalBoard.innerHTML += `
                 <li style="color: ${p.color};">
                     <span>${medal} #${index + 1} ${p.name}</span>
-                    <span>${p.score} pts</span>
-                </li>
-            `;
-        });
-    }
-    
-    const endgame = document.getElementById('endgame-screen');
-    if (endgame) endgame.classList.remove('hidden');
-});
-
-socket.on('resetLobby', () => {
-    window.location.reload(); 
-});
-
-socket.on('disconnect', () => {
-    const offlineScreen = document.getElementById('server-offline-screen');
-    if (offlineScreen) offlineScreen.classList.remove('hidden');
-});
-
-socket.on('playerLeft', (playerId) => {
-    const li = document.getElementById(`player-${playerId}`);
-    if (li) li.remove();
-    const countSpan = document.getElementById('player-count');
-    const list = document.getElementById('leaderboard-list');
-    if (countSpan && list) {
-        countSpan.textContent = list.children.length;
-    }
-});
-
-let showingRules = false;
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault(); 
-        console.log("Touche Entrée : Démarrage immédiat !");
-        
-        const rulesScreen = document.getElementById('rules-screen');
-        if (rulesScreen) rulesScreen.classList.add('hidden');
-        showingRules = false;
-        
-        if (loadingMessage) loadingMessage.style.display = 'none';
-        
-        socket.emit('startGame');
-    }
-});
-
-const startBtn = document.getElementById('start-btn');
-if (startBtn) {
-    startBtn.addEventListener('click', () => {
-        console.log("Démarrage immédiat demandé !");
-        
-        // 1. On cache l'écran des règles / tuto s'il est là
-        const rulesScreen = document.getElementById('rules-screen');
-        if (rulesScreen) {
-            rulesScreen.classList.add('hidden');
-        }
-        showingRules = false;
-
-        // 2. On cache le message de chargement
-        if (loadingMessage) {
-            loadingMessage.style.display = 'none';
-        }
-
-        // 3. On balance direct l'ordre au serveur Render !
-        socket.emit('startGame');
-    });
-}
-
-function showRulesScreen() {
-    const rulesScreen = document.getElementById('rules-screen');
-    if (rulesScreen && rulesScreen.classList.contains('hidden')) {
-        rulesScreen.classList.remove('hidden');
-        showingRules = true;
-        try { sfxPaper2.currentTime = 0; sfxPaper2.play().catch(e => {}); } catch(e){}
-        if (document.activeElement && document.activeElement.blur) {
-            document.activeElement.blur();
-        }
-    } else {
-        hideRulesAndStart();
-    }
-}
-
-function hideRulesAndStart() {
-    const rulesScreen = document.getElementById('rules-screen');
-    if (rulesScreen) rulesScreen.classList.add('hidden');
-    showingRules = false;
-    socket.emit('startGame');
-}
-
-function updateLeaderboard(player) {
-    const list = document.getElementById('leaderboard-list');
-    if (!list || !player) return;
-    
-    let li = document.getElementById(`player-${player.id}`);
-    if (!li) {
-        li = document.createElement('li');
-        li.id = `player-${player.id}`;
-        list.prepend(li); 
-    }
-
-    li.style.borderLeft = `5px solid ${player.color}`;
-    li.dataset.score = player.score;
-    li.innerHTML = `
-        <span class="p-name">${player.name}</span>
-        <span class="p-score">${player.score} pts</span>
-    `;
-    
-    const countSpan = document.getElementById('player-count');
-    if (countSpan) countSpan.textContent = list.children.length;
-}
-
-function clearMap() {
-    try {
-        if (map) {
-            if (correctMarker) map.removeLayer(correctMarker);
-            if (markers && markers.length > 0) {
-                markers.forEach(m => {
-                    if(m) map.removeLayer(m);
-                });
-            }
-        }
-    } catch (err) {
-        console.warn("Échec lors du nettoyage de la carte:", err);
-    }
-    markers = [];
-}
-
-function sortLeaderboardByScore() {
-    const list = document.getElementById('leaderboard-list');
-    if (!list) return;
-    const items = Array.from(list.children);
-    
-    items.sort((a, b) => {
-        const scoreA = parseInt(a.dataset.score || '0');
-        const scoreB = parseInt(b.dataset.score || '0');
-        return scoreB - scoreA; 
-    });
-
-    list.innerHTML = '';
-    items.forEach(li => list.appendChild(li));
-}
