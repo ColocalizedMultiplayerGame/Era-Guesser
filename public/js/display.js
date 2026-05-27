@@ -19,16 +19,16 @@ L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
 let markers = [];
 let correctMarker = null;
 
-// --- Audio System ---
-const sfxCamera = new Audio('audio/camera-flash.mp3');
-const sfxTypewriter = new Audio('audio/typewriter-type-and-ding.mp3');
-const sfxPaper1 = new Audio('audio/paper1.mp3'); // End game results
-const sfxPaper2 = new Audio('audio/paper2.mp3'); // Tutorial screen
+// --- Audio System mis à jour avec les bons dossiers ---
+const sfxCamera = new Audio('/audio/camera-flash.mp3');
+const sfxTypewriter = new Audio('/audio/typewriter-type-and-ding.mp3');
+const sfxPaper1 = new Audio('/audio/paper1.mp3'); 
+const sfxPaper2 = new Audio('/audio/paper2.mp3'); 
 
-const bgAudio = new Audio('audio/Local-Elevator.mp3');
+const bgAudio = new Audio('/audio/Local-Elevator.mp3');
 bgAudio.loop = true;
 
-const gameTracks = ['audio/Kool-Kats.mp3', 'audio/Sneaky-Snitch.mp3'];
+const gameTracks = ['/audio/Kool-Kats.mp3', '/audio/Sneaky-Snitch.mp3'];
 let currentGameTrackIndex = 0;
 let gameBGMStarted = false;
 
@@ -50,7 +50,6 @@ const unlockAudio = () => {
 };
 document.addEventListener('click', unlockAudio, { once: true });
 document.addEventListener('keydown', unlockAudio, { once: true });
-// --------------------
 
 socket.emit('identify', 'display');
 
@@ -111,27 +110,23 @@ socket.on('roundStart', (data) => {
 
     document.body.classList.add('game-started');
 
-    // Hide QR code to expand leaderboard
     const qrPlaceholder = document.getElementById('qr-code-placeholder');
     if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
 
-    // Reset view
     clearMap();
     screenResult.style.display = 'none';
     
-    // Photo & Pin Drop Animation
     photoImg.style.display = 'block';
     const pin = document.querySelector('#photo-wrapper .pin');
     
     photoImg.classList.remove('animate-drop', 'animate-flash');
     if(pin) pin.classList.remove('animate-stab');
     
-    void photoImg.offsetWidth; // Reflow
+    void photoImg.offsetWidth; 
     
     photoImg.classList.add('animate-drop', 'animate-flash');
     if(pin) pin.classList.add('animate-stab');
 
-    // Update Info
     roundDisplay.textContent = data.round;
     totalRoundsDisplay.textContent = data.total;
     photoImg.src = data.imageUrl;
@@ -144,7 +139,7 @@ socket.on('timerUpdate', (time) => {
     if (time <= 5) {
         timerDisplay.style.color = 'var(--color-blood-red)';
     } else {
-        timerDisplay.style.color = ''; // Clears inline style to use CSS color
+        timerDisplay.style.color = ''; 
     }
 });
 
@@ -162,17 +157,15 @@ socket.on('roundResult', (data) => {
     photoImg.style.display = 'none';
     screenResult.style.display = 'flex';
 
-    // Map Slam Animation
     const resultMap = document.getElementById('result-map');
     resultMap.classList.remove('animate-slam');
     
-    // Context Memo Updates
     document.getElementById('context-year').textContent = data.correctYear;
     document.getElementById('context-desc').textContent = data.description;
     const contextCard = document.getElementById('context-card');
     contextCard.classList.remove('animate-context');
     
-    void resultMap.offsetWidth; // Reflow
+    void resultMap.offsetWidth; 
     
     resultMap.classList.add('animate-slam');
     contextCard.classList.add('animate-context');
@@ -180,7 +173,6 @@ socket.on('roundResult', (data) => {
     setTimeout(() => {
         map.invalidateSize();
 
-        // Show Correct Location
         const correctIcon = L.icon({
             iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -195,10 +187,8 @@ socket.on('roundResult', (data) => {
             .bindPopup(`<b style="font-size: 1.1rem; color: var(--color-ink);">${data.correctCountry}</b>`)
             .openPopup();
 
-        // Show Player Guesses
         data.playerResults.forEach(res => {
             if (res.guess) {
-                // Pin
                 const pIcon = L.divIcon({
                     className: 'custom-pin',
                     html: `<div style="background-color:${res.color}; width:15px; height:15px; border-radius:50%; border:2px solid white;"></div>`,
@@ -211,7 +201,6 @@ socket.on('roundResult', (data) => {
                     .bindPopup(`<b>${res.name}</b><br>D: -${Math.floor(res.distance)}km<br>Y: ${res.guess.year} (${res.yearDiff > 0 ? '+' : ''}${0 - res.yearDiff})`);
                 markers.push(m);
 
-                // Line to correct
                 const line = L.polyline([
                     [data.correctLocation.lat, data.correctLocation.lng],
                     [res.guess.lat, res.guess.lng]
@@ -231,7 +220,6 @@ socket.on('roundResult', (data) => {
 });
 
 socket.on('gameEnd', (playersObj) => {
-    
     sfxPaper1.currentTime = 0;
     sfxPaper1.play().catch(e => {});
 
@@ -249,13 +237,12 @@ socket.on('gameEnd', (playersObj) => {
         `;
     });
     
-    // Show endgame screen
     const endgame = document.getElementById('endgame-screen');
     endgame.classList.remove('hidden');
 });
 
 socket.on('resetLobby', () => {
-    window.location.reload(); // Hard reset directly to a clean UI desk state
+    window.location.reload(); 
 });
 
 socket.on('disconnect', () => {
@@ -279,10 +266,9 @@ socket.on('playerLeft', (playerId) => {
 
 let showingRules = false;
 
-// Admin Control
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-        e.preventDefault(); // Prevents "Enter" from triggering a click on the currently focused button
+        e.preventDefault(); 
         
         const loadingMessage = document.getElementById('loading-message');
         const isActive = loadingMessage && loadingMessage.style.display !== 'none';
@@ -316,7 +302,6 @@ function showRulesScreen() {
         sfxPaper2.currentTime = 0;
         sfxPaper2.play().catch(e => {});
         
-        // Remove focus from start button so Enter key doesn't virtually click it again
         if (document.activeElement && document.activeElement.blur) {
             document.activeElement.blur();
         }
@@ -339,7 +324,7 @@ function updateLeaderboard(player) {
     if (!li) {
         li = document.createElement('li');
         li.id = `player-${player.id}`;
-        list.prepend(li); // Prepend instead of appendChild
+        list.prepend(li); 
     }
 
     li.style.borderLeft = `5px solid ${player.color}`;
@@ -368,7 +353,7 @@ function sortLeaderboardByScore() {
     items.sort((a, b) => {
         const scoreA = parseInt(a.dataset.score || '0');
         const scoreB = parseInt(b.dataset.score || '0');
-        return scoreB - scoreA; // Descending
+        return scoreB - scoreA; 
     });
 
     list.innerHTML = '';
