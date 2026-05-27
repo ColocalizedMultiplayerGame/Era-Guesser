@@ -10,11 +10,19 @@ const loadingMessage = document.getElementById('loading-message');
 
 const leaderboardList = document.getElementById('leaderboard-list');
 
-// Map
-let map = L.map('result-map').setView([20, 0], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap France contributors'
-}).addTo(map);
+// Map - SÉCURISÉE CONTRE LE CRASH DU NAVIGATEUR
+let map = null;
+try {
+    if (typeof L !== 'undefined' && L.map) {
+        map = L.map('result-map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap France contributors'
+        }).addTo(map);
+        console.log("Carte Leaflet initialisée avec succès.");
+    }
+} catch (e) {
+    console.error("Erreur d'initialisation de la carte (bloquée par le navigateur) :", e);
+}
 
 let markers = [];
 let correctMarker = null;
@@ -166,6 +174,16 @@ socket.on('roundResult', (data) => {
     contextCard.classList.add('animate-context');
 
     setTimeout(() => {
+        if (!map) {
+            if (data.playerResults) {
+                data.playerResults.forEach(res => {
+                    updateLeaderboard({ id: res.id, name: res.name, score: res.totalScore, color: res.color });
+                });
+            }
+            sortLeaderboardByScore();
+            return;
+        }
+
         map.invalidateSize();
 
         const correctIcon = L.icon({
@@ -176,6 +194,8 @@ socket.on('roundResult', (data) => {
             popupAnchor: [1, -34],
             shadowSize: [41, 41]
         });
+
+        if (correctMarker) map.removeLayer(correctMarker);
 
         correctMarker = L.marker([data.correctLocation.lat, data.correctLocation.lng], { icon: correctIcon })
             .addTo(map)
@@ -340,8 +360,18 @@ function updateLeaderboard(player) {
 }
 
 function clearMap() {
-    if (correctMarker) map.removeLayer(correctMarker);
-    markers.forEach(m => map.removeLayer(m));
+    try {
+        if (map) {
+            if (correctMarker) map.removeLayer(correctMarker);
+            if (markers && markers.length > 0) {
+                markers.forEach(m => {
+                    if (m) map.removeLayer(m);
+                });
+            }
+        }
+    } catch(err) {
+        console.warn(err);
+    }
     markers = [];
 }
 
