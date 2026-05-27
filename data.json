@@ -1,0 +1,222 @@
+[
+    {
+        "id": 1,
+        "imageUrl": "images/terracotta-soldiers.jpeg",
+        "year": 1974,
+        "location": {
+            "lat": 34.384919,
+            "lng": 109.273108
+        },
+        "description": "Armée de terre cuite (Terracotta Army)",
+        "country": "Chine"
+    },
+    {
+        "id": 2,
+        "imageUrl": "images/Pyramids-1938.jpeg",
+        "year": 1938,
+        "location": {
+            "lat": 29.979234,
+            "lng": 31.134202
+        },
+        "description": "Complexe des pyramides de Gizeh",
+        "country": "Égypte"
+    },
+    {
+        "id": 3,
+        "imageUrl": "images/Gaza-iftar-2025.png",
+        "year": 2025,
+        "location": {
+            "lat": 31.280331,
+            "lng": 34.244033
+        },
+        "description": "Repas d'iftar dans les décombres à Rafah",
+        "country": "Palestine"
+    },
+    {
+        "id": 4,
+        "imageUrl": "images/Tower-bridge-pilot-1968.png",
+        "year": 1968,
+        "location": {
+            "lat": 51.505456,
+            "lng": -0.075356
+        },
+        "description": "Jet de la RAF survolant la Tamise sous le Tower Bridge",
+        "country": "Royaume-Uni"
+    },
+    {
+        "id": 5,
+        "imageUrl": "images/World-cup-mexico-1986.png",
+        "year": 1986,
+        "location": {
+            "lat": 19.302861,
+            "lng": -99.150528
+        },
+        "description": "Célébration de la victoire de l'Argentine au Stade Azteca",
+        "country": "Mexique"
+    },
+    {
+        "id": 6,
+        "imageUrl": "images/iut-orsay.png",
+        "year": 2008,
+        "location": {
+            "lat": 48.7154,
+            "lng": 2.1678
+        },
+        "description": "13 Av. des Sciences, Gif-sur-Yvette",
+        "country": "France"
+    },
+    {
+        "id": 7,
+        "imageUrl": "images/kaaba-1910.jpg",
+        "year": 1910,
+        "location": {
+            "lat": 21.422487,
+            "lng": 39.826206
+        },
+        "description": "La Kaaba",
+        "country": "Arabie Saoudite"
+    },
+    {
+        "id": 8,
+        "imageUrl": "images/mombasa-kenya-2006.jpg",
+        "year": 2006,
+        "location": {
+            "lat": -4.043477,
+            "lng": 39.668206
+        },
+        "description": "Mombasa",
+        "country": "Kenya"
+    },
+    {
+        "id": 9,
+        "imageUrl": "images/oval-office-1963.jpg",
+        "year": 1963,
+        "location": {
+            "lat": 38.897676,
+            "lng": -77.036530
+        },
+        "description": "Bureau Ovale, Maison Blanche",
+        "country": "États-Unis"
+    },
+    {
+        "id": 10,
+        "imageUrl": "images/sarajevo-1914.jpg",
+        "year": 1914,
+        "location": {
+            "lat": 43.857488,
+            "lng": 18.428905
+        },
+        "description": "Assassinat de l'Archiduc François-Ferdinand",
+        "country": "Bosnie-Herzégovine"
+    },
+    {
+        "id": 11,
+        "imageUrl": "images/veneuela-party-covid-2020.jpg",
+        "year": 2020,
+        "location": {
+            "lat": 11.8540,
+            "lng": -66.7580
+        },
+        "description": "Fête clandestine à Los Roques",
+        "country": "Venezuela"
+    },
+    {
+        "id": 12,
+        "imageUrl": "images/western-front-1918.jpg",
+        "year": 1918,
+        "location": {
+            "lat": 49.1620,
+            "lng": 5.3870
+        },
+        "description": "Front de l'Ouest",
+        "country": "France"
+    },
+    {
+        "id": 13,
+        "imageUrl": "images/christ-the-redeemer-construction-1926.jpg",
+        "year": 1926,
+        "location": {
+            "lat": -22.951916,
+            "lng": -43.210487
+        },
+        "description": "Construction du Christ Rédempteur",
+        "country": "Brésil"
+    },
+    {
+        "id": 14,
+        "imageUrl": "images/dubai-1990.jpg",
+        "year": 1990,
+        "location": {
+            "lat": 25.204849,
+            "lng": 55.270782
+        },
+        "description": "Dubaï",
+        "country": "Émirats arabes unis"
+    },
+    {
+        "id": 15,
+        "imageUrl": "images/hollywood-sign-1978.jpg",
+        "year": 1978,
+        "location": {
+            "lat": 34.134117,
+            "lng": -118.321495
+        },
+        "description": "Panneau Hollywood détruit",
+        "country": "États-Unis"
+    },
+    {
+        "id": 16,
+        "imageUrl": "images/mosque-djenné-1907.jpg",
+        "year": 1907,
+        "location": {
+            "lat": 13.906400,
+            "lng": -4.555200
+        },
+        "description": "Grande Mosquée de Djenné",
+        "country": "Mali"
+    },
+    {
+        "id": 17,
+        "imageUrl": "images/nagasaki-1945.jpg",
+        "year": 1945,
+        "location": {
+            "lat": 32.750300,
+            "lng": 129.877900
+        },
+        "description": "Bombardement atomique de Nagasaki",
+        "country": "Japon"
+    },
+    {
+        "id": 18,
+        "imageUrl": "images/olympics-black-power-salute-1968.jpg",
+        "year": 1968,
+        "location": {
+            "lat": 19.332300,
+            "lng": -99.191900
+        },
+        "description": "Salut du Black Power aux Jeux Olympiques",
+        "country": "Mexique"
+    },
+    {
+        "id": 19,
+        "imageUrl": "images/tiananmen-protest-1989.jpg",
+        "year": 1989,
+        "location": {
+            "lat": 39.904200,
+            "lng": 116.407400
+        },
+        "description": "Manifestations de la place Tian'anmen",
+        "country": "Chine"
+    },
+    {
+        "id": 20,
+        "imageUrl": "images/wright-first-flight-1903.jpg",
+        "year": 1903,
+        "location": {
+            "lat": 36.015000,
+            "lng": -75.666100
+        },
+        "description": "Premier vol des frères Wright à Kitty Hawk",
+        "country": "États-Unis"
+    }
+]

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Manette EraGuesser</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="controller-mode">
+    <div id="server-offline-screen" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('images/cork-bg-tape.JPEG') center/cover no-repeat; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
+        <div style="background: rgba(255, 255, 255, 0.7); max-width: 90%; padding: 30px 20px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0,0,0,0.3);">
+            <h1 style="color: #ad1a1a; font-family: 'Special Elite', monospace; font-size: 2.5rem; margin-bottom: 20px; text-shadow: 1px 1px 0px rgba(255,255,255,1);">CONNEXION PERDUE</h1>
+            <p style="font-size: 1.2rem; font-family: 'Special Elite', monospace; color: #111;">Le serveur principal s'est arrêté.</p>
+            <p style="margin-top: 20px; color: #333; font-weight: bold;">Merci d'avoir joué à EraGuesser !</p>
+        </div>
+    </div>
+
+    <div id="login-screen">
+        <h1>EraGuesser</h1>
+        <p>Votre nom pour le dossier</p>
+        <input type="text" id="username" placeholder="Inspecteur..." autocomplete="off" maxlength="20">
+        <button id="join-btn">Rejoindre</button>
+    </div>
+
+    <div id="waiting-room" class="hidden">
+        <h2>Dossier Accepté...</h2>
+        <p>Regardez le tableau principal.</p>
+        <p>En attente du début de l'enquête...</p>
+        <div style="font-size: 3rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">🔍</div>
+        <button id="lobby-minigame-btn" class="minigame-btn">Jouer pour patienter</button>
+    </div>
+
+    <div id="game-interface" class="hidden">
+        <div id="status-bar">En attente des indices...</div>
+
+        <div id="mobile-timer-container">
+            ⏳ <span id="mobile-timer">30</span>s
+        </div>
+
+        <!-- Map for Location Guess -->
+        <h3>Où s'est déroulé cet événement ?</h3>
+        <div id="map-input"></div>
+
+        <!-- Slider for Year Guess -->
+        <h3>Année estimée : <span id="selected-year"
+                style="color: var(--color-blood-red); font-weight: bold; font-size: 1.2rem;">1950</span></h3>
+        <input type="range" id="year-slider" min="1900" max="2025" value="1950" step="1">
+
+        <button id="submit-guess">Fermer le dossier</button>
+        <button id="post-guess-minigame-btn" class="minigame-btn hidden"
+            style="margin-top: 10px; background-color: #333;">Jouer pour patienter</button>
+    </div>
+
+    <!-- Personal Results Screen -->
+    <div id="personal-results" class="hidden">
+        <div
+            style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; box-sizing: border-box; text-align: center; background: rgba(245, 245, 240, 0.95); box-shadow: 0px 4px 15px rgba(0,0,0,0.5); border: 1px solid #ccc; max-width: 90%; margin: 20px auto; border-radius: 5px;">
+            <h2
+                style="color: var(--color-blood-red); font-family: 'Special Elite', monospace; font-size: 2.5rem; margin-bottom: 20px; letter-spacing: 2px; text-transform: uppercase; font-weight: bold; text-decoration: underline;">
+                RAPPORT</h2>
+            <div
+                style="width: 100%; padding: 20px 0; border-top: 2px dashed #333; border-bottom: 2px dashed #333; margin-bottom: 20px;">
+                <p style="font-size: 1.2rem; margin-bottom: 5px; color: #555; font-weight: bold;">DISTANCE</p>
+                <div id="res-distance" style="font-size: 2rem; color: #111; font-weight: bold; margin-bottom: 15px;"></div>
+                
+                <p style="font-size: 1.2rem; margin-bottom: 5px; color: #555; font-weight: bold;">ANNÉE</p>
+                <div id="res-year" style="font-size: 2rem; color: #111; font-weight: bold; margin-bottom: 15px;"></div>
+                
+                <p style="font-size: 1.2rem; margin-bottom: 5px; color: #555; font-weight: bold;">SCORE OBTENU</p>
+                <div id="res-points"
+                    style="font-weight:bold; font-size: 2.8rem; color: var(--color-blood-red); margin-top: 5px;"></div>
+            </div>
+            <p id="res-status-msg"
+                style="font-family: 'Special Elite', monospace; color: #111; font-size: 1.2rem; line-height: 1.5; font-weight: bold;">
+                Analyse terminée.<br>Regardez le tableau principal pour le classement.</p>
+        </div>
+    </div>
+
+    <!-- Mini Game Modal -->
+    <div id="minigame-modal" class="hidden">
+        <div class="minigame-container">
+            <h2
+                style="margin-top: 0; color: var(--color-blood-red); border-bottom: 2px dashed #333; padding-bottom: 5px;">
+                Border Drop</h2>
+            <div id="minigame-score" style="font-weight: bold; margin-bottom: 10px;">Score: <span
+                    id="mg-score-val">0</span></div>
+            <canvas id="minigame-canvas" width="300" height="350"></canvas>
+            <p style="font-size: 0.9rem; margin: 10px 0;">Glissez pour déplacer la corbeille</p>
+            <button id="close-minigame-btn"
+                style="background-color: #333; padding: 0.7rem 1.5rem; max-width: none;">Quitter</button>
+        </div>
+    </div>
+
+    <script src="js/controller.js"></script>
+</body>
+
+</html>
