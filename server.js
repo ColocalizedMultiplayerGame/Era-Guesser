@@ -99,8 +99,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', () => {
-        // Supprimé la condition stricte LOBBY pour éviter les blocages en cas de désynchronisation cloud
-        console.log("Ordre de démarrage reçu de l'écran principal");
+        console.log("🚨 [DEBUG SERVEUR] Événement 'startGame' bien reçu par Render !");
+        console.log(`🚨 [DEBUG SERVEUR] Nombre de questions chargées dans data.json : ${gameData.length}`);
+        
+        // Envoi d'un accusé de réception immédiat au client pour confirmation visuelle
+        socket.emit('gameStartedAck', { totalQuestions: gameData.length });
+        
         startGame();
     });
 
@@ -139,6 +143,7 @@ function startGame() {
     }
     
     gameState.activeRoundIndices = globalDeck.splice(0, gameState.totalRounds);
+    console.log(`🚨 [DEBUG SERVEUR] Pool des rounds généré avec succès : ${gameState.activeRoundIndices}`);
     startRound();
 }
 
@@ -158,6 +163,7 @@ function startRound() {
         gameState.players[id].lastGuess = null;
     });
 
+    console.log(`🚨 [DEBUG SERVEUR] Envoi de 'roundStart' pour la manche ${gameState.currentRound}`);
     io.emit('roundStart', {
         round: gameState.currentRound,
         total: gameState.totalRounds,
@@ -165,7 +171,7 @@ function startRound() {
         time: ROUND_TIME
     });
 
-    if (gameState.timer) clearInterval(gameState.timer); // Sécurité anti-doublon de chrono
+    if (gameState.timer) clearInterval(gameState.timer);
 
     gameState.timer = setInterval(() => {
         gameState.timeLeft--;
