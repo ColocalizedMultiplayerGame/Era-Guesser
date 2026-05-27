@@ -19,14 +19,13 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'display.html'));
 });
 
-// Importation dynamique de QRCode pour compatibilité ESM/CJS si besoin, ou standard
 const QRCode = require('qrcode');
 
 // Configuration de la route QR Code dynamique pour Render
 app.get('/qrcode', async (req, res) => {
     try {
         const host = req.get('host'); 
-        const protocol = req.protocol; // https sur Render, http en local
+        const protocol = req.protocol; 
         
         const url = `${protocol}://${host}/controller.html`;
         const qr = await QRCode.toDataURL(url);
@@ -52,7 +51,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 // Game State
 let gameState = {
-    phase: 'LOBBY', // LOBBY, ROUND, RESULT, END
+    phase: 'LOBBY', 
     players: {},
     currentRound: 0,
     totalRounds: Math.min(3, gameData.length),
@@ -62,7 +61,7 @@ let gameState = {
     activeRoundIndices: []
 };
 
-const ROUND_TIME = 45; // seconds
+const ROUND_TIME = 45; 
 
 io.on('connection', (socket) => {
     // Identify client type
@@ -74,7 +73,6 @@ io.on('connection', (socket) => {
             socket.join('display');
             socket.emit('updateState', gameState);
         } else if (type === 'controller') {
-            // New Player
             gameState.players[socket.id] = {
                 id: socket.id,
                 name: name,
@@ -101,15 +99,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', () => {
-        if (gameState.phase === 'LOBBY') {
-            startGame();
-        }
+        // Supprimé la condition stricte LOBBY pour éviter les blocages en cas de désynchronisation cloud
+        console.log("Ordre de démarrage reçu de l'écran principal");
+        startGame();
     });
 
     socket.on('submitGuess', (guess) => {
         if (gameState.phase === 'ROUND' && gameState.players[socket.id]) {
             gameState.players[socket.id].lastGuess = guess;
-            gameState.players[socket.id].guessTimeLeft = gameState.timeLeft; // Record speed
+            gameState.players[socket.id].guessTimeLeft = gameState.timeLeft; 
             io.to('display').emit('playerGuessed', socket.id);
             socket.emit('guessReceived');
         }
@@ -166,6 +164,8 @@ function startRound() {
         imageUrl: gameState.currentRoundData.imageUrl,
         time: ROUND_TIME
     });
+
+    if (gameState.timer) clearInterval(gameState.timer); // Sécurité anti-doublon de chrono
 
     gameState.timer = setInterval(() => {
         gameState.timeLeft--;
