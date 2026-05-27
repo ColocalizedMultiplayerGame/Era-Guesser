@@ -303,8 +303,10 @@ if (startBtn) {
     startBtn.addEventListener('click', () => {
         const isActive = loadingMessage && loadingMessage.style.display !== 'none';
         if (isActive && !showingRules) {
+            console.log("active");
             showRulesScreen();
         } else {
+            console.log("none active");
             hideRulesAndStart();
         }
     });
