@@ -252,39 +252,26 @@ function endGame() {
     }, 30000); // 30 seconds
 }
 
-// const localtunnel = require('localtunnel'); // Removed in favor of untun
+/ Écoute sur le port fourni par Render (ou 3000 en local)
+const PORT = process.env.PORT || 3000;
 
-const PORT = 3000;
-let publicUrl = null;
-
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-
-    try {
-        // Use untun for Cloudflare tunnel (No password page)
-        const { startTunnel } = await import('untun');
-        const tunnel = await startTunnel({ port: PORT });
-
-        if (tunnel) {
-            publicUrl = await tunnel.getURL();
-            console.log(`Public URL: ${publicUrl}`);
-            io.emit('tunnelReady');
-        }
-    } catch (err) {
-        console.error('Error creating tunnel:', err);
-    }
 });
 
+// Route QR Code adaptée pour Render
 app.get('/qrcode', async (req, res) => {
     try {
-        if (!publicUrl) {
-            return res.json({ ready: false });
-        }
-        const url = `${publicUrl}/controller.html`;
+        // Sur Render, on peut reconstruire l'URL publique dynamiquement à partir de la requête
+        const host = req.get('host'); 
+        const protocol = req.protocol; // https ou http
+        
+        const url = `${protocol}://${host}/controller.html`;
         const qr = await QRCode.toDataURL(url);
 
         res.json({ ready: true, qr, url });
     } catch (err) {
+        console.error('Error generating QR code:', err);
         res.status(500).send('Error generating QR code');
     }
 });
