@@ -10,18 +10,11 @@ const loadingMessage = document.getElementById('loading-message');
 
 const leaderboardList = document.getElementById('leaderboard-list');
 
-// Map Initialization sécurisée
-let map = null;
-try {
-    if (typeof L !== 'undefined' && L.map) {
-        map = L.map('result-map').setView([20, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap France contributors'
-        }).addTo(map);
-    }
-} catch (e) {
-    console.error("Erreur lors de l'initialisation de la carte Leaflet:", e);
-}
+// Map
+let map = L.map('result-map').setView([20, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap France contributors'
+}).addTo(map);
 
 let markers = [];
 let correctMarker = null;
@@ -40,18 +33,14 @@ let currentGameTrackIndex = 0;
 let gameBGMStarted = false;
 
 function playNextGameTrack() {
-    try {
-        bgAudio.src = gameTracks[currentGameTrackIndex];
-        bgAudio.loop = false;
-        bgAudio.play().catch(e => console.log('BGM play error:', e));
-        
-        bgAudio.onended = () => {
-            currentGameTrackIndex = (currentGameTrackIndex + 1) % gameTracks.length;
-            playNextGameTrack();
-        };
-    } catch (err) {
-        console.error("Erreur pistes audio:", err);
-    }
+    bgAudio.src = gameTracks[currentGameTrackIndex];
+    bgAudio.loop = false;
+    bgAudio.play().catch(e => console.log('BGM play error:', e));
+    
+    bgAudio.onended = () => {
+        currentGameTrackIndex = (currentGameTrackIndex + 1) % gameTracks.length;
+        playNextGameTrack();
+    };
 }
 
 const unlockAudio = () => {
@@ -82,7 +71,7 @@ function fetchAndDisplayQR() {
                     `;
                 }
             }
-        }).catch(err => console.error("Erreur QR Code:", err));
+        });
 }
 
 // Events
@@ -99,10 +88,8 @@ socket.on('playerUpdated', (player) => {
 });
 
 socket.on('updateState', (state) => {
-    if (state && state.players) {
-        Object.values(state.players).forEach(updateLeaderboard);
-    }
-    if (state && state.phase !== 'LOBBY') {
+    Object.values(state.players).forEach(updateLeaderboard);
+    if (state.phase !== 'LOBBY') {
         sortLeaderboardByScore();
     }
 });
@@ -113,7 +100,8 @@ socket.on('roundStart', (data) => {
         playNextGameTrack();
     }
     
-    try { sfxCamera.currentTime = 0; sfxCamera.play().catch(e => {}); } catch(e){}
+    sfxCamera.currentTime = 0;
+    sfxCamera.play().catch(e => {});
 
     document.body.classList.add('game-started');
 
@@ -121,30 +109,27 @@ socket.on('roundStart', (data) => {
     if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
 
     clearMap();
-    if (screenResult) screenResult.style.display = 'none';
+    screenResult.style.display = 'none';
     
-    if (photoImg) {
-        photoImg.style.display = 'block';
-        photoImg.classList.remove('animate-drop', 'animate-flash');
-    }
-    
+    photoImg.style.display = 'block';
     const pin = document.querySelector('#photo-wrapper .pin');
-    if (pin) pin.classList.remove('animate-stab');
     
-    void document.body.offsetWidth; 
+    photoImg.classList.remove('animate-drop', 'animate-flash');
+    if(pin) pin.classList.remove('animate-stab');
     
-    if (photoImg) photoImg.classList.add('animate-drop', 'animate-flash');
-    if (pin) pin.classList.add('animate-stab');
+    void photoImg.offsetWidth; 
+    
+    photoImg.classList.add('animate-drop', 'animate-flash');
+    if(pin) pin.classList.add('animate-stab');
 
-    if (roundDisplay) roundDisplay.textContent = data.round;
-    if (totalRoundsDisplay) totalRoundsDisplay.textContent = data.total;
-    if (photoImg) photoImg.src = data.imageUrl;
-    if (timerDisplay) timerDisplay.textContent = data.time;
-    if (loadingMessage) loadingMessage.style.display = 'none';
+    roundDisplay.textContent = data.round;
+    totalRoundsDisplay.textContent = data.total;
+    photoImg.src = data.imageUrl;
+    timerDisplay.textContent = data.time;
+    loadingMessage.style.display = 'none';
 });
 
 socket.on('timerUpdate', (time) => {
-    if (!timerDisplay) return;
     timerDisplay.textContent = time;
     if (time <= 5) {
         timerDisplay.style.color = 'var(--color-blood-red)';
@@ -161,38 +146,26 @@ socket.on('playerGuessed', (playerId) => {
 });
 
 socket.on('roundResult', (data) => {
-    try { sfxTypewriter.currentTime = 0; sfxTypewriter.play().catch(e => {}); } catch(e){}
+    sfxTypewriter.currentTime = 0;
+    sfxTypewriter.play().catch(e => {});
 
-    if (photoImg) photoImg.style.display = 'none';
-    if (screenResult) screenResult.style.display = 'flex';
+    photoImg.style.display = 'none';
+    screenResult.style.display = 'flex';
 
     const resultMap = document.getElementById('result-map');
-    if (resultMap) resultMap.classList.remove('animate-slam');
+    resultMap.classList.remove('animate-slam');
     
-    const contextYear = document.getElementById('context-year');
-    const contextDesc = document.getElementById('context-desc');
-    if (contextYear) contextYear.textContent = data.correctYear;
-    if (contextDesc) contextDesc.textContent = data.description;
-    
+    document.getElementById('context-year').textContent = data.correctYear;
+    document.getElementById('context-desc').textContent = data.description;
     const contextCard = document.getElementById('context-card');
-    if (contextCard) contextCard.classList.remove('animate-context');
+    contextCard.classList.remove('animate-context');
     
-    void document.body.offsetWidth; 
+    void resultMap.offsetWidth; 
     
-    if (resultMap) resultMap.classList.add('animate-slam');
-    if (contextCard) contextCard.classList.add('animate-context');
+    resultMap.classList.add('animate-slam');
+    contextCard.classList.add('animate-context');
 
     setTimeout(() => {
-        if (!map || typeof L === 'undefined') {
-            if (data.playerResults) {
-                data.playerResults.forEach(res => {
-                    updateLeaderboard({ id: res.id, name: res.name, score: res.totalScore, color: res.color });
-                });
-            }
-            sortLeaderboardByScore();
-            return;
-        }
-
         map.invalidateSize();
 
         const correctIcon = L.icon({
@@ -204,45 +177,37 @@ socket.on('roundResult', (data) => {
             shadowSize: [41, 41]
         });
 
-        if (correctMarker) map.removeLayer(correctMarker);
-
         correctMarker = L.marker([data.correctLocation.lat, data.correctLocation.lng], { icon: correctIcon })
             .addTo(map)
             .bindPopup(`<b style="font-size: 1.1rem; color: var(--color-ink);">${data.correctCountry}</b>`)
             .openPopup();
 
-        if (data.playerResults) {
-            data.playerResults.forEach(res => {
-                if (res.guess) {
-                    const pIcon = L.divIcon({
-                        className: 'custom-pin',
-                        html: `<div style="background-color:${res.color}; width:15px; height:15px; border-radius:50%; border:2px solid white;"></div>`,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10]
-                    });
+        data.playerResults.forEach(res => {
+            if (res.guess) {
+                const pIcon = L.divIcon({
+                    className: 'custom-pin',
+                    html: `<div style="background-color:${res.color}; width:15px; height:15px; border-radius:50%; border:2px solid white;"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
 
-                    const m = L.marker([res.guess.lat, res.guess.lng], { icon: pIcon })
-                        .addTo(map)
-                        .bindPopup(`<b>${res.name}</b><br>D: -${Math.floor(res.distance)}km<br>Y: ${res.guess.year} (${res.yearDiff > 0 ? '+' : ''}${0 - res.yearDiff})`);
-                    markers.push(m);
+                const m = L.marker([res.guess.lat, res.guess.lng], { icon: pIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>${res.name}</b><br>D: -${Math.floor(res.distance)}km<br>Y: ${res.guess.year} (${res.yearDiff > 0 ? '+' : ''}${0 - res.yearDiff})`);
+                markers.push(m);
 
-                    const line = L.polyline([
-                        [data.correctLocation.lat, data.correctLocation.lng],
-                        [res.guess.lat, res.guess.lng]
-                    ], { color: res.color, weight: 2, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
-                    markers.push(line);
-                }
-                updateLeaderboard({ id: res.id, name: res.name, score: res.totalScore, color: res.color });
-            });
-        }
+                const line = L.polyline([
+                    [data.correctLocation.lat, data.correctLocation.lng],
+                    [res.guess.lat, res.guess.lng]
+                ], { color: res.color, weight: 2, opacity: 0.6, dashArray: '5, 10' }).addTo(map);
+                markers.push(line);
+            }
+            updateLeaderboard({ id: res.id, name: res.name, score: res.totalScore, color: res.color });
+        });
         sortLeaderboardByScore();
 
-        try {
-            const group = new L.featureGroup([correctMarker, ...markers]);
-            map.fitBounds(group.getBounds().pad(0.1));
-        } catch (err) {
-            console.log("Erreur zoom carte:", err);
-        }
+        const group = new L.featureGroup([correctMarker, ...markers]);
+        map.fitBounds(group.getBounds().pad(0.1));
 
     }, 100);
 
@@ -250,15 +215,146 @@ socket.on('roundResult', (data) => {
 });
 
 socket.on('gameEnd', (playersObj) => {
-    try { sfxPaper1.currentTime = 0; sfxPaper1.play().catch(e => {}); } catch(e){}
+    sfxPaper1.currentTime = 0;
+    sfxPaper1.play().catch(e => {});
 
-    if (!playersObj) return;
     const players = Object.values(playersObj).sort((a,b) => b.score - a.score);
     const finalBoard = document.getElementById('final-leaderboard');
-    if (finalBoard) {
-        finalBoard.innerHTML = '';
-        players.forEach((p, index) => {
-            let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : ''));
-            finalBoard.innerHTML += `
-                <li style="color: ${p.color};">
-                    <span>${medal} #${index + 1} ${p.name}</span>
+    finalBoard.innerHTML = '';
+    
+    players.forEach((p, index) => {
+        let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : ''));
+        finalBoard.innerHTML += `
+            <li style="color: ${p.color};">
+                <span>${medal} #${index + 1} ${p.name}</span>
+                <span>${p.score} pts</span>
+            </li>
+        `;
+    });
+    
+    const endgame = document.getElementById('endgame-screen');
+    endgame.classList.remove('hidden');
+});
+
+socket.on('resetLobby', () => {
+    window.location.reload(); 
+});
+
+socket.on('disconnect', () => {
+    const offlineScreen = document.getElementById('server-offline-screen');
+    if (offlineScreen) {
+        offlineScreen.classList.remove('hidden');
+    }
+});
+
+socket.on('playerLeft', (playerId) => {
+    const li = document.getElementById(`player-${playerId}`);
+    if (li) {
+        li.remove();
+        const countSpan = document.getElementById('player-count');
+        const list = document.getElementById('leaderboard-list');
+        if (countSpan && list) {
+            countSpan.textContent = list.children.length;
+        }
+    }
+});
+
+let showingRules = false;
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault(); 
+        
+        const loadingMessage = document.getElementById('loading-message');
+        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
+        
+        if (isActive && !showingRules) {
+            showRulesScreen();
+        } else if (showingRules) {
+            hideRulesAndStart();
+        }
+    }
+});
+
+const startBtn = document.getElementById('start-btn');
+if (startBtn) {
+    startBtn.addEventListener('click', () => {
+        const loadingMessage = document.getElementById('loading-message');
+        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
+        
+        if (isActive && !showingRules) {
+            console.log("active");
+            showRulesScreen();
+        } else {
+            console.log("none active");
+            hideRulesAndStart();
+        }
+    });
+}
+
+function showRulesScreen() {
+    const rulesScreen = document.getElementById('rules-screen');
+    if (rulesScreen && rulesScreen.classList.contains('hidden')) {
+        rulesScreen.classList.remove('hidden');
+        showingRules = true;
+        
+        sfxPaper2.currentTime = 0;
+        sfxPaper2.play().catch(e => {});
+        
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+    }
+}
+
+function hideRulesAndStart() {
+    const rulesScreen = document.getElementById('rules-screen');
+    if (rulesScreen && !rulesScreen.classList.contains('hidden')) {
+        rulesScreen.classList.add('hidden');
+        showingRules = false;
+        socket.emit('startGame');
+    }
+}
+
+function updateLeaderboard(player) {
+    const list = document.getElementById('leaderboard-list');
+    let li = document.getElementById(`player-${player.id}`);
+
+    if (!li) {
+        li = document.createElement('li');
+        li.id = `player-${player.id}`;
+        list.prepend(li); 
+    }
+
+    li.style.borderLeft = `5px solid ${player.color}`;
+    li.dataset.score = player.score;
+    li.innerHTML = `
+        <span class="p-name">${player.name}</span>
+        <span class="p-score">${player.score} pts</span>
+    `;
+    
+    const countSpan = document.getElementById('player-count');
+    if (countSpan) {
+        countSpan.textContent = list.children.length;
+    }
+}
+
+function clearMap() {
+    if (correctMarker) map.removeLayer(correctMarker);
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+}
+
+function sortLeaderboardByScore() {
+    const list = document.getElementById('leaderboard-list');
+    const items = Array.from(list.children);
+    
+    items.sort((a, b) => {
+        const scoreA = parseInt(a.dataset.score || '0');
+        const scoreB = parseInt(b.dataset.score || '0');
+        return scoreB - scoreA; 
+    });
+
+    list.innerHTML = '';
+    items.forEach(li => list.appendChild(li));
+}
