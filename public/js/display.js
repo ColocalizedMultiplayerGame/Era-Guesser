@@ -117,32 +117,38 @@ socket.on('roundStart', (data) => {
     if (qrPlaceholder) qrPlaceholder.classList.add('hidden');
 
     clearMap();
-    screenResult.style.display = 'none';
+    if (screenResult) screenResult.style.display = 'none';
     
-    photoImg.style.display = 'block';
-    const pin = document.querySelector('#photo-wrapper .pin');
-    
-    photoImg.classList.remove('animate-drop', 'animate-flash');
-    if(pin) pin.classList.remove('animate-stab');
-    
-    void photoImg.offsetWidth; 
-    
-    photoImg.classList.add('animate-drop', 'animate-flash');
-    if(pin) pin.classList.add('animate-stab');
+    if (photoImg) {
+        photoImg.style.display = 'block';
+        const pin = document.querySelector('#photo-wrapper .pin');
+        
+        photoImg.classList.remove('animate-drop', 'animate-flash');
+        if(pin) pin.classList.remove('animate-stab');
+        
+        void photoImg.offsetWidth; 
+        
+        photoImg.classList.add('animate-drop', 'animate-flash');
+        if(pin) pin.classList.add('animate-stab');
+        
+        // Attribution de l'image de l'événement
+        photoImg.src = data.imageUrl;
+    }
 
-    roundDisplay.textContent = data.round;
-    totalRoundsDisplay.textContent = data.total;
-    photoImg.src = data.imageUrl;
-    timerDisplay.textContent = data.time;
-    loadingMessage.style.display = 'none';
+    if (roundDisplay) roundDisplay.textContent = data.round;
+    if (totalRoundsDisplay) totalRoundsDisplay.textContent = data.total;
+    if (timerDisplay) timerDisplay.textContent = data.time;
+    if (loadingMessage) loadingMessage.style.display = 'none';
 });
 
 socket.on('timerUpdate', (time) => {
-    timerDisplay.textContent = time;
-    if (time <= 5) {
-        timerDisplay.style.color = 'var(--color-blood-red)';
-    } else {
-        timerDisplay.style.color = ''; 
+    if (timerDisplay) {
+        timerDisplay.textContent = time;
+        if (time <= 5) {
+            timerDisplay.style.color = 'var(--color-blood-red)';
+        } else {
+            timerDisplay.style.color = ''; 
+        }
     }
 });
 
@@ -157,21 +163,25 @@ socket.on('roundResult', (data) => {
     sfxTypewriter.currentTime = 0;
     sfxTypewriter.play().catch(e => {});
 
-    photoImg.style.display = 'none';
-    screenResult.style.display = 'flex';
+    if (photoImg) photoImg.style.display = 'none';
+    if (screenResult) screenResult.style.display = 'flex';
 
     const resultMap = document.getElementById('result-map');
-    resultMap.classList.remove('animate-slam');
+    if (resultMap) resultMap.classList.remove('animate-slam');
     
-    document.getElementById('context-year').textContent = data.correctYear;
-    document.getElementById('context-desc').textContent = data.description;
+    const contextYear = document.getElementById('context-year');
+    const contextDesc = document.getElementById('context-desc');
+    if (contextYear) contextYear.textContent = data.correctYear;
+    if (contextDesc) contextDesc.textContent = data.description;
+    
     const contextCard = document.getElementById('context-card');
-    contextCard.classList.remove('animate-context');
+    if (contextCard) contextCard.classList.remove('animate-context');
     
-    void resultMap.offsetWidth; 
-    
-    resultMap.classList.add('animate-slam');
-    contextCard.classList.add('animate-context');
+    if (resultMap) {
+        void resultMap.offsetWidth; 
+        resultMap.classList.add('animate-slam');
+    }
+    if (contextCard) contextCard.classList.add('animate-context');
 
     setTimeout(() => {
         if (!map) {
@@ -240,20 +250,21 @@ socket.on('gameEnd', (playersObj) => {
 
     const players = Object.values(playersObj).sort((a,b) => b.score - a.score);
     const finalBoard = document.getElementById('final-leaderboard');
-    finalBoard.innerHTML = '';
-    
-    players.forEach((p, index) => {
-        let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : ''));
-        finalBoard.innerHTML += `
-            <li style="color: ${p.color};">
-                <span>${medal} #${index + 1} ${p.name}</span>
-                <span>${p.score} pts</span>
-            </li>
-        `;
-    });
+    if (finalBoard) {
+        finalBoard.innerHTML = '';
+        players.forEach((p, index) => {
+            let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : ''));
+            finalBoard.innerHTML += `
+                <li style="color: ${p.color};">
+                    <span>${medal} #${index + 1} ${p.name}</span>
+                    <span>${p.score} pts</span>
+                </li>
+            `;
+        });
+    }
     
     const endgame = document.getElementById('endgame-screen');
-    endgame.classList.remove('hidden');
+    if (endgame) endgame.classList.remove('hidden');
 });
 
 socket.on('resetLobby', () => {
@@ -279,67 +290,38 @@ socket.on('playerLeft', (playerId) => {
     }
 });
 
-let showingRules = false;
-
+// ÉCOUTEURS CLAVIER & SOURIS : ACTION DIRECTE EN 1 CLIC
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault(); 
+        console.log("Action Entrée : Lancement direct !");
         
-        const loadingMessage = document.getElementById('loading-message');
-        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
+        const rulesScreen = document.getElementById('rules-screen');
+        if (rulesScreen) rulesScreen.classList.add('hidden');
+        if (loadingMessage) loadingMessage.style.display = 'none';
         
-        if (isActive && !showingRules) {
-            showRulesScreen();
-        } else if (showingRules) {
-            hideRulesAndStart();
-        }
+        socket.emit('startGame');
     }
 });
 
 const startBtn = document.getElementById('start-btn');
 if (startBtn) {
     startBtn.addEventListener('click', () => {
-        const loadingMessage = document.getElementById('loading-message');
-        const isActive = loadingMessage && loadingMessage.style.display !== 'none';
+        console.log("Action Bouton : Lancement direct !");
         
-        if (isActive && !showingRules) {
-            console.log("active");
-            showRulesScreen();
-        } else {
-            console.log("none active");
-            hideRulesAndStart();
-        }
-    });
-}
-
-function showRulesScreen() {
-    const rulesScreen = document.getElementById('rules-screen');
-    if (rulesScreen && rulesScreen.classList.contains('hidden')) {
-        rulesScreen.classList.remove('hidden');
-        showingRules = true;
+        const rulesScreen = document.getElementById('rules-screen');
+        if (rulesScreen) rulesScreen.classList.add('hidden');
+        if (loadingMessage) loadingMessage.style.display = 'none';
         
-        sfxPaper2.currentTime = 0;
-        sfxPaper2.play().catch(e => {});
-        
-        if (document.activeElement && document.activeElement.blur) {
-            document.activeElement.blur();
-        }
-    }
-}
-
-function hideRulesAndStart() {
-    const rulesScreen = document.getElementById('rules-screen');
-    if (rulesScreen && !rulesScreen.classList.contains('hidden')) {
-        rulesScreen.classList.add('hidden');
-        showingRules = false;
         socket.emit('startGame');
-    }
+    });
 }
 
 function updateLeaderboard(player) {
     const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    
     let li = document.getElementById(`player-${player.id}`);
-
     if (!li) {
         li = document.createElement('li');
         li.id = `player-${player.id}`;
@@ -363,11 +345,7 @@ function clearMap() {
     try {
         if (map) {
             if (correctMarker) map.removeLayer(correctMarker);
-            if (markers && markers.length > 0) {
-                markers.forEach(m => {
-                    if (m) map.removeLayer(m);
-                });
-            }
+            markers.forEach(m => { if (m) map.removeLayer(m); });
         }
     } catch(err) {
         console.warn(err);
@@ -377,6 +355,7 @@ function clearMap() {
 
 function sortLeaderboardByScore() {
     const list = document.getElementById('leaderboard-list');
+    if (!list) return;
     const items = Array.from(list.children);
     
     items.sort((a, b) => {
