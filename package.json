@@ -13,6 +13,6 @@
     "localtunnel": "^2.0.2",
     "qrcode": "^1.5.4",
     "socket.io": "^4.7.2",
-    "untun": "^0.1.3"
+   
   }
 }
