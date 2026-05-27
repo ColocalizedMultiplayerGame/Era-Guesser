@@ -19,7 +19,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
 let markers = [];
 let correctMarker = null;
 
-// --- Audio System mis à jour avec les bons dossiers ---
+// --- Audio System ---
 const sfxCamera = new Audio('/audio/camera-flash.mp3');
 const sfxTypewriter = new Audio('/audio/typewriter-type-and-ding.mp3');
 const sfxPaper1 = new Audio('/audio/paper1.mp3'); 
@@ -77,11 +77,6 @@ function fetchAndDisplayQR() {
 // Events
 socket.on('connect', () => {
     console.log("Connected to server");
-    fetchAndDisplayQR();
-});
-
-socket.on('tunnelReady', () => {
-    console.log("Tunnel ready, refreshing QR Code");
     fetchAndDisplayQR();
 });
 
@@ -310,11 +305,12 @@ function showRulesScreen() {
 
 function hideRulesAndStart() {
     const rulesScreen = document.getElementById('rules-screen');
-    if (rulesScreen && !rulesScreen.classList.contains('hidden')) {
+    if (rulesScreen) {
         rulesScreen.classList.add('hidden');
-        showingRules = false;
-        socket.emit('startGame');
     }
+    showingRules = false;
+    console.log("Envoi du signal startGame au serveur...");
+    socket.emit('startGame');
 }
 
 function updateLeaderboard(player) {
