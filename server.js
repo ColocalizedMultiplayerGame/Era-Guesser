@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
 const fs = require('fs');
+const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +12,6 @@ const io = new Server(server);
 // Chargement des données de jeu depuis la racine
 const gameData = JSON.parse(fs.readFileSync('data.json', 'utf8'));
 
-// Sert tous les fichiers du dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Redirection de la racine vers l'écran principal
@@ -19,15 +19,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'display.html'));
 });
 
-const QRCode = require('qrcode');
-
-// Configuration de la route QR Code dynamique pour Render
+// Route QR Code dynamique modifiée pour accepter un ?room=CODE
 app.get('/qrcode', async (req, res) => {
     try {
         const host = req.get('host'); 
         const protocol = req.protocol; 
+        const room = req.query.room || 'LOBBY';
         
-        const url = `${protocol}://${host}/controller.html`;
+        const url = `${protocol}://${host}/controller.html?room=${room}`;
         const qr = await QRCode.toDataURL(url);
 
         res.json({ ready: true, qr, url });
@@ -49,30 +48,64 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-// Game State
-let gameState = {
-    phase: 'LOBBY', 
-    players: {},
-    currentRound: 0,
-    totalRounds: Math.min(3, gameData.length),
-    currentRoundData: null,
-    timer: null,
-    timeLeft: 0,
-    activeRoundIndices: []
-};
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
 
+// Stockage de TOUTES les sessions de jeu actives
+// Structure : { [roomCode]: { phase, players, currentRound, ... } }
+const games = {};
 const ROUND_TIME = 45; 
 
 io.on('connection', (socket) => {
-    // Identify client type
+    let currentRoom = null;
+
+    // Identification du client avec son type ET son code de session
     socket.on('identify', (data) => {
         const type = typeof data === 'string' ? data : data.type;
-        const name = (typeof data === 'object' && data.name) ? data.name : ('Joueur ' + socket.id.substr(0, 4));
+        let room = data.room ? data.room.toUpperCase() : null;
+        const name = data.name ? data.name : ('Joueur ' + socket.id.substr(0, 4));
 
         if (type === 'display') {
-            socket.join('display');
-            socket.emit('updateState', gameState);
+            // Création d'une nouvelle session de jeu unique
+            if (!room) {
+                room = generateRoomCode();
+                while (games[room]) { room = generateRoomCode(); } // Évite les doublons
+            }
+            
+            games[room] = {
+                roomCode: room,
+                phase: 'LOBBY', 
+                players: {},
+                currentRound: 0,
+                totalRounds: Math.min(3, gameData.length),
+                currentRoundData: null,
+                timer: null,
+                timeLeft: 0,
+                activeRoundIndices: [],
+                globalDeck: []
+            };
+
+            currentRoom = room;
+            socket.join(room);
+            socket.join(`${room}-display`);
+            
+            // On renvoie le code généré au display pour affichage
+            socket.emit('roomCreated', room);
+            socket.emit('updateState', games[room]);
+            console.log(`🎮 Nouvelle session créée : [${room}]`);
+
         } else if (type === 'controller') {
+            // Un joueur tente de se connecter
+            if (!room || !games[room]) {
+                socket.emit('errorMsg', 'Partie introuvable ou code invalide.');
+                return;
+            }
+
+            const gameState = games[room];
+            currentRoom = room;
+            socket.join(room);
+
             gameState.players[socket.id] = {
                 id: socket.id,
                 name: name,
@@ -80,8 +113,9 @@ io.on('connection', (socket) => {
                 color: '#' + Math.floor(Math.random() * 16777215).toString(16),
                 lastGuess: null
             };
-            io.to('display').emit('playerJoined', gameState.players[socket.id]);
-            socket.emit('joined', gameState.players[socket.id]);
+
+            io.to(`${room}-display`).emit('playerJoined', gameState.players[socket.id]);
+            socket.emit('joined', { playerData: gameState.players[socket.id], roomCode: room });
 
             if (gameState.phase !== 'LOBBY') {
                 socket.emit('gameAlreadyStarted');
@@ -92,65 +126,84 @@ io.on('connection', (socket) => {
     });
 
     socket.on('updateName', (name) => {
-        if (gameState.players[socket.id]) {
-            gameState.players[socket.id].name = name;
-            io.to('display').emit('playerUpdated', gameState.players[socket.id]);
+        if (currentRoom && games[currentRoom] && games[currentRoom].players[socket.id]) {
+            games[currentRoom].players[socket.id].name = name;
+            io.to(`${currentRoom}-display`).emit('playerUpdated', games[currentRoom].players[socket.id]);
         }
     });
 
     socket.on('startGame', () => {
-        console.log("🚨 [DEBUG SERVEUR] Événement 'startGame' bien reçu par Render !");
-        console.log(`🚨 [DEBUG SERVEUR] Nombre de questions chargées dans data.json : ${gameData.length}`);
-        
-        // Envoi d'un accusé de réception immédiat au client pour confirmation visuelle
+        if (!currentRoom || !games[currentRoom]) return;
+        const gameState = games[currentRoom];
+
+        console.log(`🚨 [${currentRoom}] Événement 'startGame' reçu.`);
         socket.emit('gameStartedAck', { totalQuestions: gameData.length });
         
-        startGame();
+        startGame(currentRoom);
     });
 
     socket.on('submitGuess', (guess) => {
+        if (!currentRoom || !games[currentRoom]) return;
+        const gameState = games[currentRoom];
+
         if (gameState.phase === 'ROUND' && gameState.players[socket.id]) {
             gameState.players[socket.id].lastGuess = guess;
             gameState.players[socket.id].guessTimeLeft = gameState.timeLeft; 
-            io.to('display').emit('playerGuessed', socket.id);
+            io.to(`${currentRoom}-display`).emit('playerGuessed', socket.id);
             socket.emit('guessReceived');
         }
     });
 
     socket.on('disconnect', () => {
+        if (!currentRoom || !games[currentRoom]) return;
+        const gameState = games[currentRoom];
+
+        // Si c'est un joueur qui quitte
         if (gameState.players[socket.id]) {
             delete gameState.players[socket.id];
-            io.to('display').emit('playerLeft', socket.id);
+            io.to(`${currentRoom}-display`).emit('playerLeft', socket.id);
+        }
+
+        // Optionnel : Nettoyer la mémoire si l'écran Display se déconnecte et que la room est vide
+        const connectedSockets = io.sockets.adapter.rooms.get(`${currentRoom}-display`);
+        if (!connectedSockets || connectedSockets.size === 0) {
+            console.log(`🧹 Fermeture de la room vide : [${currentRoom}]`);
+            clearInterval(gameState.timer);
+            delete games[currentRoom];
         }
     });
 });
 
-let globalDeck = [];
+// Logique de jeu encapsulée par Session (roomCode)
+function startGame(roomCode) {
+    const gameState = games[roomCode];
+    if (!gameState) return;
 
-function startGame() {
     gameState.currentRound = 0;
     gameState.players = Object.fromEntries(
         Object.entries(gameState.players).map(([id, p]) => [id, { ...p, score: 0, lastGuess: null }])
     );
     
-    if (globalDeck.length < gameState.totalRounds) {
+    if (gameState.globalDeck.length < gameState.totalRounds) {
         let pool = Array.from({length: gameData.length}, (_, i) => i);
         for (let i = pool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
         }
-        globalDeck = globalDeck.concat(pool);
+        gameState.globalDeck = gameState.globalDeck.concat(pool);
     }
     
-    gameState.activeRoundIndices = globalDeck.splice(0, gameState.totalRounds);
-    console.log(`🚨 [DEBUG SERVEUR] Pool des rounds généré avec succès : ${gameState.activeRoundIndices}`);
-    startRound();
+    gameState.activeRoundIndices = gameState.globalDeck.splice(0, gameState.totalRounds);
+    startRound(roomCode);
 }
 
-function startRound() {
+function startRound(roomCode) {
+    const gameState = games[roomCode];
+    if (!gameState) return;
+
     gameState.currentRound++;
     if (gameState.currentRound > gameState.totalRounds) {
-        endGame();
+        endGame(roomCode);
         return;
     }
 
@@ -163,8 +216,7 @@ function startRound() {
         gameState.players[id].lastGuess = null;
     });
 
-    console.log(`🚨 [DEBUG SERVEUR] Envoi de 'roundStart' pour la manche ${gameState.currentRound}`);
-    io.emit('roundStart', {
+    io.to(roomCode).emit('roundStart', {
         round: gameState.currentRound,
         total: gameState.totalRounds,
         imageUrl: gameState.currentRoundData.imageUrl,
@@ -175,14 +227,17 @@ function startRound() {
 
     gameState.timer = setInterval(() => {
         gameState.timeLeft--;
-        io.emit('timerUpdate', gameState.timeLeft);
+        io.to(roomCode).emit('timerUpdate', gameState.timeLeft);
         if (gameState.timeLeft <= 0) {
-            endRound();
+            endRound(roomCode);
         }
     }, 1000);
 }
 
-function endRound() {
+function endRound(roomCode) {
+    const gameState = games[roomCode];
+    if (!gameState) return;
+
     clearInterval(gameState.timer);
     gameState.phase = 'RESULT';
 
@@ -212,7 +267,6 @@ function endRound() {
             
             roundScore = Math.floor(rawAccuracyScore * speedMultiplier);
             p.score += roundScore;
-            
             p.guessTimeLeft = 0;
         }
 
@@ -230,7 +284,7 @@ function endRound() {
 
     results.sort((a, b) => b.totalScore - a.totalScore);
 
-    io.emit('roundResult', {
+    io.to(roomCode).emit('roundResult', {
         correctLocation: correct.location,
         correctYear: correct.year,
         description: correct.description,
@@ -239,16 +293,19 @@ function endRound() {
     });
 
     setTimeout(() => {
-        startRound();
+        startRound(roomCode);
     }, 10000);
 }
 
-function endGame() {
+function endGame(roomCode) {
+    const gameState = games[roomCode];
+    if (!gameState) return;
+
     gameState.phase = 'END';
-    io.emit('gameEnd', gameState.players);
+    io.to(roomCode).emit('gameEnd', gameState.players);
     setTimeout(() => {
         gameState.phase = 'LOBBY';
-        io.emit('resetLobby');
+        io.to(roomCode).emit('resetLobby');
     }, 30000); 
 }
 
