@@ -3,21 +3,19 @@ let myId = null;
 let currentGuess = { lat: 0, lng: 0, year: 1950 };
 let hasGuessed = false;
 
-// Récupère le code de session depuis l'URL (?room=ABCD)
+// --- Système de gestion de la Session (Multisession) ---
+const roomInput = document.getElementById('room-code');
 const urlParams = new URLSearchParams(window.location.search);
 let roomCode = urlParams.get('room') ? urlParams.get('room').toUpperCase() : null;
 
-// Si aucun code n'est dans l'URL, on peut demander via un prompt (ou ajouter un input HTML dédié)
-if (!roomCode) {
-    roomCode = prompt("Entrez le code de la partie (4 lettres) :")?.toUpperCase();
+// Si un code est présent dans l'URL (via QR code), on l'injecte et on verrouille
+if (roomCode && roomInput) {
+    roomInput.value = roomCode;
+    roomInput.disabled = true;
+    roomInput.style.opacity = "0.7";
 }
 
-socket.on('errorMsg', (msg) => {
-    alert(msg);
-    loginScreen.classList.remove('hidden');
-});
-
-// --- Web Audio API System mis à jour avec les dossiers audio ---
+// --- Web Audio API System ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const audioBuffers = {};
 
@@ -44,7 +42,7 @@ function playSfx(name) {
     }
 }
 
-// UI Elements
+// Éléments de l'interface graphique (UI)
 const loginScreen = document.getElementById('login-screen');
 const waitingRoom = document.getElementById('waiting-room');
 const gameInterface = document.getElementById('game-interface');
@@ -56,7 +54,7 @@ const submitBtn = document.getElementById('submit-guess');
 const statusMsg = document.getElementById('status-bar');
 const mobileTimer = document.getElementById('mobile-timer');
 
-// Map Initialization
+// Initialisation de la carte Leaflet
 let map = null;
 let currentMarker = null;
 
@@ -88,20 +86,30 @@ function initMap() {
     });
 }
 
-// Login Logic
+// Logique du bouton "Rejoindre" (Connexion avec filtre de Room)
 joinBtn.addEventListener('click', () => {
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    // Si la room n'était pas figée par l'URL, on récupère la saisie manuelle
+    if (!roomCode && roomInput) {
+        roomCode = roomInput.value.trim().toUpperCase();
+    }
+    
     let name = usernameInput.value.trim();
+    
+    if (!roomCode) {
+        alert("Veuillez entrer un code de partie valide !");
+        return;
+    }
+
     if (name) {
         if (name.length > 20) name = name.substring(0, 20);
-        
-        // Envoi du type ET du code de la session cible
         socket.emit('identify', { type: 'controller', name: name, room: roomCode });
         loginScreen.classList.add('hidden');
     }
 });
 
-// Slider Logic
+// Logique de la Frise Chronologique (Slider)
 yearSlider.addEventListener('input', (e) => {
     if (hasGuessed) return;
     
@@ -111,7 +119,7 @@ yearSlider.addEventListener('input', (e) => {
     currentGuess.year = parseInt(e.target.value);
 });
 
-// Submit Logic
+// Logique de validation de réponse
 submitBtn.addEventListener('click', () => {
     if (!currentMarker) {
         alert("Placez d'abord un marqueur sur la carte !");
@@ -150,9 +158,20 @@ function unlockInterface() {
     if (postBtn) postBtn.classList.add('hidden');
 }
 
-socket.on('joined', (playerData) => {
-    myId = playerData.id;
-    console.log('Joined as', playerData);
+// --- Gestion des Événements Sockets ---
+
+socket.on('joined', (data) => {
+    // Le serveur renvoie { playerData, roomCode } suite à notre modification multisession
+    myId = data.playerData.id;
+    console.log('Connecté avec succès à la room :', data.roomCode);
+});
+
+socket.on('errorMsg', (msg) => {
+    alert(msg);
+    loginScreen.classList.remove('hidden');
+    if (roomInput && !roomInput.disabled) {
+        roomCode = null; // Reset de la variable pour autoriser une correction
+    }
 });
 
 socket.on('waitInLobby', () => {
@@ -243,7 +262,7 @@ socket.on('disconnect', () => {
 });
 
 // ==========================================
-// Border Drop Mini-Game Logic
+// Logique du Mini-Jeu : Border Drop
 // ==========================================
 const minigameModal = document.getElementById('minigame-modal');
 const mgCanvas = document.getElementById('minigame-canvas');
