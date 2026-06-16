@@ -3,6 +3,20 @@ let myId = null;
 let currentGuess = { lat: 0, lng: 0, year: 1950 };
 let hasGuessed = false;
 
+// Récupère le code de session depuis l'URL (?room=ABCD)
+const urlParams = new URLSearchParams(window.location.search);
+let roomCode = urlParams.get('room') ? urlParams.get('room').toUpperCase() : null;
+
+// Si aucun code n'est dans l'URL, on peut demander via un prompt (ou ajouter un input HTML dédié)
+if (!roomCode) {
+    roomCode = prompt("Entrez le code de la partie (4 lettres) :")?.toUpperCase();
+}
+
+socket.on('errorMsg', (msg) => {
+    alert(msg);
+    loginScreen.classList.remove('hidden');
+});
+
 // --- Web Audio API System mis à jour avec les dossiers audio ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const audioBuffers = {};
@@ -80,7 +94,9 @@ joinBtn.addEventListener('click', () => {
     let name = usernameInput.value.trim();
     if (name) {
         if (name.length > 20) name = name.substring(0, 20);
-        socket.emit('identify', { type: 'controller', name: name });
+        
+        // Envoi du type ET du code de la session cible
+        socket.emit('identify', { type: 'controller', name: name, room: roomCode });
         loginScreen.classList.add('hidden');
     }
 });
