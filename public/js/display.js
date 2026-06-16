@@ -59,22 +59,38 @@ const unlockAudio = () => {
 document.addEventListener('click', unlockAudio, { once: true });
 document.addEventListener('keydown', unlockAudio, { once: true });
 
-socket.emit('identify', 'display');
+// On s'identifie en tant que display sans fournir de code, le serveur va en créer un
+socket.emit('identify', { type: 'display' });
 
-function fetchAndDisplayQR() {
-    fetch('/qrcode')
+let currentRoomCode = null;
+
+socket.on('roomCreated', (room) => {
+    currentRoomCode = room;
+    console.log("Room assignée :", room);
+    
+    // Optionnel : Si vous avez une balise HTML pour afficher le code en gros texte
+    const codeDisplay = document.getElementById('room-code-text');
+    if (codeDisplay) codeDisplay.innerText = `CODE : ${room}`;
+    
+    // On génère le QR code lié à cette room spécifique
+    fetchAndDisplayQR(room);
+});
+
+function fetchAndDisplayQR(room) {
+    if (!room) return;
+    
+    // On passe le paramètre room à l'API backend
+    fetch(`/qrcode?room=${room}`)
         .then(res => res.json())
         .then(data => {
             const container = document.getElementById('qr-code-placeholder');
             if (container) {
                 if (!data.ready) {
-                    container.innerHTML = `
-                        <p style="margin: 0; font-size: 0.9rem; font-style: italic; opacity: 0.7;">Génération du lien sécurisé...<br>Veuillez patienter.</p>
-                    `;
+                    container.innerHTML = `<p>Génération du lien sécurisé...</p>`;
                 } else {
                     container.innerHTML = `
-                        <p style="margin: 0 0 5px 0; font-size: 0.9rem; font-weight: bold;">Scannez pour rejoindre</p>
-                        <img src="${data.qr}" style="width: 110px; border-radius: 8px;">
+                        <p style="margin: 0 0 5px 0; font-size: 1.2rem; font-weight: bold;">REJOINDRE : CODES DE PARTIE <span style="color:red;">${room}</span></p>
+                        <img src="${data.qr}" style="width: 140px; border-radius: 8px;">
                         <p style="font-size: 0.65rem; word-break: break-all; margin: 5px 0 0 0;">${data.url}</p>
                     `;
                 }
