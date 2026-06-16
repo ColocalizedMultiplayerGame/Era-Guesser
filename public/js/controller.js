@@ -161,25 +161,27 @@ function unlockInterface() {
 // --- Gestion des Événements Sockets ---
 
 socket.on('joined', (data) => {
-    // Le serveur renvoie { playerData, roomCode } suite à notre modification multisession
     myId = data.playerData.id;
+    if (loginScreen) loginScreen.classList.add('hidden'); // Sécurité à la connexion réussie
     console.log('Connecté avec succès à la room :', data.roomCode);
 });
 
 socket.on('errorMsg', (msg) => {
     alert(msg);
-    loginScreen.classList.remove('hidden');
+    if (loginScreen) loginScreen.classList.remove('hidden');
     if (roomInput && !roomInput.disabled) {
         roomCode = null; // Reset de la variable pour autoriser une correction
     }
 });
 
 socket.on('waitInLobby', () => {
+    if (loginScreen) loginScreen.classList.add('hidden');
     if (waitingRoom) waitingRoom.classList.remove('hidden');
     gameInterface.classList.add('hidden');
 });
 
 socket.on('roundStart', (data) => {
+    if (loginScreen) loginScreen.classList.add('hidden'); // Cache l'écran de connexion
     document.body.classList.add('game-started');
     if (waitingRoom) waitingRoom.classList.add('hidden');
     gameInterface.classList.remove('hidden');
@@ -199,6 +201,7 @@ socket.on('roundStart', (data) => {
 });
 
 socket.on('gameAlreadyStarted', () => {
+    if (loginScreen) loginScreen.classList.add('hidden'); // Cache l'écran de connexion
     document.body.classList.add('game-started');
     statusMsg.innerText = "Partie en cours... Attendez la prochaine manche.";
     if (waitingRoom) waitingRoom.classList.add('hidden');
@@ -218,6 +221,7 @@ socket.on('timerUpdate', (timeLeft) => {
 
 socket.on('roundResult', (data) => {
     closeMiniGame(); 
+    if (loginScreen) loginScreen.classList.add('hidden');
     const myResult = data.playerResults.find(p => p.id === myId);
     if (myResult && myResult.guess) {
         const personalResults = document.getElementById('personal-results');
