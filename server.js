@@ -3,38 +3,34 @@ const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Chargement des données de jeu depuis la racine
+// Get Local IP
+function getLocalIp() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+const localIp = getLocalIp();
+
+// Load Game Data
 const gameData = JSON.parse(fs.readFileSync('data.json', 'utf8'));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Redirection de la racine vers l'écran principal
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'display.html'));
-});
+// QR Code route moved to bottom to use publicUrl
 
-// Route QR Code dynamique modifiée pour accepter un ?room=CODE
-app.get('/qrcode', async (req, res) => {
-    try {
-        const host = req.get('host'); 
-        const protocol = req.protocol; 
-        const room = req.query.room || 'LOBBY';
-        
-        const url = `${protocol}://${host}/controller.html?room=${room}`;
-        const qr = await QRCode.toDataURL(url);
-
-        res.json({ ready: true, qr, url });
-    } catch (err) {
-        console.error('Error generating QR code:', err);
-        res.status(500).send('Error generating QR code');
-    }
-});
 
 // Helpers
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -48,64 +44,32 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 6).toUpperCase();
-}
+// Game State
+let gameState = {
+    phase: 'LOBBY', // LOBBY, ROUND, RESULT, END
+    players: {},
+    currentRound: 0,
+    totalRounds: Math.min(3, gameData.length),
+    currentRoundData: null,
+    timer: null,
+    timeLeft: 0,
+    activeRoundIndices: []
+};
 
-// Stockage de TOUTES les sessions de jeu actives
-// Structure : { [roomCode]: { phase, players, currentRound, ... } }
-const games = {};
-const ROUND_TIME = 45; 
+const ROUND_TIME = 45; // seconds
 
 io.on('connection', (socket) => {
-    let currentRoom = null;
-
-    // Identification du client avec son type ET son code de session
+    // Identify client type
     socket.on('identify', (data) => {
+        // Support both string 'display' and object {type, name}
         const type = typeof data === 'string' ? data : data.type;
-        let room = data.room ? data.room.toUpperCase() : null;
-        const name = data.name ? data.name : ('Joueur ' + socket.id.substr(0, 4));
+        const name = (typeof data === 'object' && data.name) ? data.name : ('Joueur ' + socket.id.substr(0, 4));
 
         if (type === 'display') {
-            // Création d'une nouvelle session de jeu unique
-            if (!room) {
-                room = generateRoomCode();
-                while (games[room]) { room = generateRoomCode(); } // Évite les doublons
-            }
-            
-            games[room] = {
-                roomCode: room,
-                phase: 'LOBBY', 
-                players: {},
-                currentRound: 0,
-                totalRounds: Math.min(3, gameData.length),
-                currentRoundData: null,
-                timer: null,
-                timeLeft: 0,
-                activeRoundIndices: [],
-                globalDeck: []
-            };
-
-            currentRoom = room;
-            socket.join(room);
-            socket.join(`${room}-display`);
-            
-            // On renvoie le code généré au display pour affichage
-            socket.emit('roomCreated', room);
-            socket.emit('updateState', games[room]);
-            console.log(`🎮 Nouvelle session créée : [${room}]`);
-
+            socket.join('display');
+            socket.emit('updateState', gameState);
         } else if (type === 'controller') {
-            // Un joueur tente de se connecter
-            if (!room || !games[room]) {
-                socket.emit('errorMsg', 'Partie introuvable ou code invalide.');
-                return;
-            }
-
-            const gameState = games[room];
-            currentRoom = room;
-            socket.join(room);
-
+            // New Player
             gameState.players[socket.id] = {
                 id: socket.id,
                 name: name,
@@ -113,10 +77,10 @@ io.on('connection', (socket) => {
                 color: '#' + Math.floor(Math.random() * 16777215).toString(16),
                 lastGuess: null
             };
+            io.to('display').emit('playerJoined', gameState.players[socket.id]);
+            socket.emit('joined', gameState.players[socket.id]);
 
-            io.to(`${room}-display`).emit('playerJoined', gameState.players[socket.id]);
-            socket.emit('joined', { playerData: gameState.players[socket.id], roomCode: room });
-
+            // If game already running, inform player
             if (gameState.phase !== 'LOBBY') {
                 socket.emit('gameAlreadyStarted');
             } else {
@@ -126,118 +90,95 @@ io.on('connection', (socket) => {
     });
 
     socket.on('updateName', (name) => {
-        if (currentRoom && games[currentRoom] && games[currentRoom].players[socket.id]) {
-            games[currentRoom].players[socket.id].name = name;
-            io.to(`${currentRoom}-display`).emit('playerUpdated', games[currentRoom].players[socket.id]);
+        if (gameState.players[socket.id]) {
+            gameState.players[socket.id].name = name;
+            io.to('display').emit('playerUpdated', gameState.players[socket.id]);
         }
     });
 
     socket.on('startGame', () => {
-        if (!currentRoom || !games[currentRoom]) return;
-        const gameState = games[currentRoom];
-
-        console.log(`🚨 [${currentRoom}] Événement 'startGame' reçu.`);
-        socket.emit('gameStartedAck', { totalQuestions: gameData.length });
-        
-        startGame(currentRoom);
+        if (gameState.phase === 'LOBBY') {
+            startGame();
+        }
     });
 
     socket.on('submitGuess', (guess) => {
-        if (!currentRoom || !games[currentRoom]) return;
-        const gameState = games[currentRoom];
-
         if (gameState.phase === 'ROUND' && gameState.players[socket.id]) {
             gameState.players[socket.id].lastGuess = guess;
-            gameState.players[socket.id].guessTimeLeft = gameState.timeLeft; 
-            io.to(`${currentRoom}-display`).emit('playerGuessed', socket.id);
+            gameState.players[socket.id].guessTimeLeft = gameState.timeLeft; // Record speed
+            io.to('display').emit('playerGuessed', socket.id);
             socket.emit('guessReceived');
         }
     });
 
     socket.on('disconnect', () => {
-        if (!currentRoom || !games[currentRoom]) return;
-        const gameState = games[currentRoom];
-
-        // Si c'est un joueur qui quitte
         if (gameState.players[socket.id]) {
             delete gameState.players[socket.id];
-            io.to(`${currentRoom}-display`).emit('playerLeft', socket.id);
-        }
-
-        // Optionnel : Nettoyer la mémoire si l'écran Display se déconnecte et que la room est vide
-        const connectedSockets = io.sockets.adapter.rooms.get(`${currentRoom}-display`);
-        if (!connectedSockets || connectedSockets.size === 0) {
-            console.log(`🧹 Fermeture de la room vide : [${currentRoom}]`);
-            clearInterval(gameState.timer);
-            delete games[currentRoom];
+            io.to('display').emit('playerLeft', socket.id);
         }
     });
 });
 
-// Logique de jeu encapsulée par Session (roomCode)
-function startGame(roomCode) {
-    const gameState = games[roomCode];
-    if (!gameState) return;
+let globalDeck = [];
 
+function startGame() {
     gameState.currentRound = 0;
     gameState.players = Object.fromEntries(
         Object.entries(gameState.players).map(([id, p]) => [id, { ...p, score: 0, lastGuess: null }])
     );
     
-    if (gameState.globalDeck.length < gameState.totalRounds) {
+    // Use a "Bag" randomizer (draw without replacement across games)
+    if (globalDeck.length < gameState.totalRounds) {
         let pool = Array.from({length: gameData.length}, (_, i) => i);
+        // Fisher-Yates shuffle
         for (let i = pool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
         }
-        gameState.globalDeck = gameState.globalDeck.concat(pool);
+        globalDeck = globalDeck.concat(pool);
     }
     
-    gameState.activeRoundIndices = gameState.globalDeck.splice(0, gameState.totalRounds);
-    startRound(roomCode);
+    // Draw the next rounds from the bag
+    gameState.activeRoundIndices = globalDeck.splice(0, gameState.totalRounds);
+    
+    startRound();
 }
 
-function startRound(roomCode) {
-    const gameState = games[roomCode];
-    if (!gameState) return;
-
+function startRound() {
     gameState.currentRound++;
     if (gameState.currentRound > gameState.totalRounds) {
-        endGame(roomCode);
+        endGame();
         return;
     }
 
     gameState.phase = 'ROUND';
+    // Pick from the randomized pool
     const dataIndex = gameState.activeRoundIndices[gameState.currentRound - 1];
     gameState.currentRoundData = gameData[dataIndex];
     gameState.timeLeft = ROUND_TIME;
 
+    // Reset guesses
     Object.keys(gameState.players).forEach(id => {
         gameState.players[id].lastGuess = null;
     });
 
-    io.to(roomCode).emit('roundStart', {
+    io.emit('roundStart', {
         round: gameState.currentRound,
         total: gameState.totalRounds,
         imageUrl: gameState.currentRoundData.imageUrl,
         time: ROUND_TIME
     });
 
-    if (gameState.timer) clearInterval(gameState.timer);
-
     gameState.timer = setInterval(() => {
         gameState.timeLeft--;
-        io.to(roomCode).emit('timerUpdate', gameState.timeLeft);
+        io.emit('timerUpdate', gameState.timeLeft);
         if (gameState.timeLeft <= 0) {
-            endRound(roomCode);
+            endRound();
         }
     }, 1000);
 }
 
-function endRound(roomCode) {
-    const gameState = games[roomCode];
-    if (!gameState) return;
-
+function endRound() {
     clearInterval(gameState.timer);
     gameState.phase = 'RESULT';
 
@@ -251,22 +192,27 @@ function endRound(roomCode) {
         let yearDiff = 0;
 
         if (p.lastGuess) {
+            // Distance Score
             dist = calculateDistance(
                 correct.location.lat, correct.location.lng,
                 p.lastGuess.lat, p.lastGuess.lng
             );
             const distScore = Math.max(0, 2500 - Math.floor(dist));
 
+            // Year Score
             yearDiff = Math.abs(correct.year - p.lastGuess.year);
             const yearScore = Math.max(0, 2500 - (yearDiff * 50));
 
             const rawAccuracyScore = distScore + yearScore;
             
-            const timeRatio = (p.guessTimeLeft || 0) / ROUND_TIME; 
-            const speedMultiplier = 1.0 + timeRatio; 
+            // Speed Multiplier (Up to 2x bonus for instant answers)
+            const timeRatio = (p.guessTimeLeft || 0) / ROUND_TIME; // 1.0 (fast) down to 0.0 (slow)
+            const speedMultiplier = 1.0 + timeRatio; // 2.0x max, 1.0x min
             
             roundScore = Math.floor(rawAccuracyScore * speedMultiplier);
             p.score += roundScore;
+            
+            // Reset for next round
             p.guessTimeLeft = 0;
         }
 
@@ -284,7 +230,7 @@ function endRound(roomCode) {
 
     results.sort((a, b) => b.totalScore - a.totalScore);
 
-    io.to(roomCode).emit('roundResult', {
+    io.emit('roundResult', {
         correctLocation: correct.location,
         correctYear: correct.year,
         description: correct.description,
@@ -293,23 +239,52 @@ function endRound(roomCode) {
     });
 
     setTimeout(() => {
-        startRound(roomCode);
+        startRound();
     }, 10000);
 }
 
-function endGame(roomCode) {
-    const gameState = games[roomCode];
-    if (!gameState) return;
-
+function endGame() {
     gameState.phase = 'END';
-    io.to(roomCode).emit('gameEnd', gameState.players);
+    io.emit('gameEnd', gameState.players);
     setTimeout(() => {
         gameState.phase = 'LOBBY';
-        io.to(roomCode).emit('resetLobby');
-    }, 30000); 
+        io.emit('resetLobby');
+    }, 30000); // 30 seconds
 }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+// const localtunnel = require('localtunnel'); // Removed in favor of untun
+
+const PORT = 3000;
+let publicUrl = null;
+
+server.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+
+    try {
+        // Use untun for Cloudflare tunnel (No password page)
+        const { startTunnel } = await import('untun');
+        const tunnel = await startTunnel({ port: PORT });
+
+        if (tunnel) {
+            publicUrl = await tunnel.getURL();
+            console.log(`Public URL: ${publicUrl}`);
+            io.emit('tunnelReady');
+        }
+    } catch (err) {
+        console.error('Error creating tunnel:', err);
+    }
+});
+
+app.get('/qrcode', async (req, res) => {
+    try {
+        if (!publicUrl) {
+            return res.json({ ready: false });
+        }
+        const url = `${publicUrl}/controller.html`;
+        const qr = await QRCode.toDataURL(url);
+
+        res.json({ ready: true, qr, url });
+    } catch (err) {
+        res.status(500).send('Error generating QR code');
+    }
 });

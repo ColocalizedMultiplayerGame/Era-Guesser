@@ -12,7 +12,7 @@
     "leaflet": "^1.9.4",
     "localtunnel": "^2.0.2",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.2"
-   
+    "socket.io": "^4.8.3",
+    "untun": "^0.1.3"
   }
 }
